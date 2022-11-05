@@ -16,9 +16,17 @@ If you've done everything correctly, than you should see your SSH public key on 
 ```bash
 ssh <user>@<ip-address>
 # Enter password given to you
+
+# Setup authentication with SSH key
 curl https://github.com/<Your-GitHub-Account>.keys >> ~/.ssh/authorized_keys
 chmod 700 ~/.ssh
 chmod 644 ~/.ssh/authorized_keys
+
+# You can also change your Linux user password using this command
+passwd
+# Enter password given to you and then imagine new Linux user password. 
+# You will use this password when running "sudo" commands. 
+
 exit
 ```
 
@@ -28,7 +36,6 @@ Check if everything works:
 ssh <user>@<ip-address>
 # Enter passphrase (password) you assigned to your SSH key.
 ```
-
 
 ## Login into `psql`
 
