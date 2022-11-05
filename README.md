@@ -25,7 +25,7 @@ usage: ssh [-46AaCfGgKkMNnqsTtVvXxYy] [-B bind_interface]
 than you have to install SSH on your PC. Please, follow [official Microsoft tutorial](https://learn.microsoft.com/en-us/windows-server/administration/openssh/openssh_install_firstuse?tabs=gui). Only **SSH Client** is required, so you may skip SSH Server installation. 
 
 
-## Create SSH key: 
+## Create SSH key
 
 Generate a new SSH key by following [**Generating a new SSH key**](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent#generating-a-new-ssh-key) instructions. 
 
