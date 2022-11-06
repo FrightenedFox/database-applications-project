@@ -62,7 +62,7 @@ ssh <user>@<ip-address>
 ## Login into `psql`
 
 ```bash
-psql -U <user> -d <database>
-# For example 
-psql -U ncyran -d postgres
+psql -U <user> -d <database> -h 127.0.0.1
+# For example
+psql -U ncyran -d usos -h 127.0.0.1
 ```
