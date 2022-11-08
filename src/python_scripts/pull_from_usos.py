@@ -98,6 +98,10 @@ async def pull_data(db: UsosDB):
                 unit_group_id = db.upsert_unit_group(group["course_unit_id"],
                                                      group["group_number"])
 
+                # This user in groups
+                db.insert_user_group(user_usos_id=user_info["usos_id"],
+                                     unit_group_id=unit_group_id)
+
                 # Students
                 for student_info in group["participants"]:
                     student_info["usos_id"] = student_info.pop("id")
