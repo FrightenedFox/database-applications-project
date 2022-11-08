@@ -31,8 +31,7 @@ async def pull_data(db: UsosDB):
     user_info["usos_id"] = user_info.pop("id")
     if not db.row_exists(key_value=user_info["usos_id"],
                          key_column="usos_id",
-                         table="users") or True:
-        # TODO: remove or TRUE
+                         table="users"):  # or True: (for debugging)
         db.create_user(**user_info)
 
         student_programmes = usos_connection.get(
@@ -44,6 +43,11 @@ async def pull_data(db: UsosDB):
                 programme_id=programme["programme"]["id"],
                 programme_name=programme["programme"]["description"]["pl"],
             )
+            db.insert_user_programme(
+                programme["programme"]["id"],
+                user_id=user_info["usos_id"]
+            )
+        await asyncio.sleep(0.2)
 
         groups_participant = usos_connection.get(
             service="services/groups/user",
@@ -66,6 +70,7 @@ async def pull_data(db: UsosDB):
                     term_id=active_term,
                     fields="name|start_date|end_date"
                 )
+                await asyncio.sleep(0.2)
                 db.insert_term(active_term,
                                active_term_info["name"]["pl"],
                                active_term_info["start_date"],
@@ -90,14 +95,18 @@ async def pull_data(db: UsosDB):
                                      course=group["course_id"],
                                      group_type=group["class_type_id"])
 
-                # No NEED, do it later with services/groups/group
+                unit_group_id = db.upsert_unit_group(group["course_unit_id"],
+                                                     group["group_number"])
 
+                # Students
                 for student_info in group["participants"]:
                     student_info["usos_id"] = student_info.pop("id")
                     if not db.row_exists(key_value=student_info["usos_id"],
                                          key_column="usos_id",
                                          table="users"):
                         db.create_user(**student_info)
+                        db.insert_user_group(user_usos_id=student_info["usos_id"],
+                                             unit_group_id=unit_group_id)
 
         for unit_id in unit_ids:
             courses_unit_response = usos_connection.get(
@@ -124,16 +133,16 @@ async def pull_data(db: UsosDB):
 
             start_time, end_time = db.get_unit_term_info(courses_unit_response["term_id"])
             for group in courses_unit_response["groups"]:
+                # Unit groups
+                unit_group_index = db.upsert_unit_group(unit_id,
+                                                        group["group_number"])
+
                 # Teachers
                 for lecturer in group["lecturers"]:
                     db.upsert_teacher(lecturer["id"],
                                       lecturer["first_name"],
                                       lecturer["last_name"])
                     db.insert_group_teacher(unit_group_index, lecturer["id"])
-
-                # Unit groups
-                unit_group_index = db.upsert_unit_group(unit_id,
-                                                        group["group_number"])
 
                 for date in daterange(start_date=start_time, end_date=end_time, step=7):
                     timetable_group = usos_connection.get(
@@ -144,12 +153,12 @@ async def pull_data(db: UsosDB):
                         days=7,
                         fields="start_time|end_time|room_number|room_id",
                     )
+                    await asyncio.sleep(0.3)
                     for activity in timetable_group:
                         start_time_naive = dt.datetime.fromisoformat(activity["start_time"])
                         end_time_naive = dt.datetime.fromisoformat(activity["end_time"])
                         start_time_pl_tz = pl_tz.localize(start_time_naive, is_dst=True)
                         end_time_pl_tz = pl_tz.localize(end_time_naive, is_dst=True)
-                        logging.debug(activity["room_id"], activity["room_number"])
 
                         # Add room and building
                         if activity["room_id"] is not None and not db.row_exists(
@@ -162,6 +171,7 @@ async def pull_data(db: UsosDB):
                                 room_id=activity["room_id"],
                                 fields="id|number|building|capacity",
                             )
+                            await asyncio.sleep(0.2)
                             building_info = room_building_info["building"]
                             db.insert_building(
                                 building_id=building_info["id"],
@@ -181,8 +191,6 @@ async def pull_data(db: UsosDB):
                             room=activity["room_number"],
                             unit_group=unit_group_index,
                         )
-                    break
-                    await asyncio.sleep(1)
 
         # print(unit_ids)
     usos_connection.logout()

@@ -89,9 +89,6 @@ CREATE TABLE teachers
             PRIMARY KEY,
     first_name      TEXT    NOT NULL,
     last_name       TEXT    NOT NULL
-        CONSTRAINT teachers_private_room_fk
-            REFERENCES rooms
-            ON DELETE RESTRICT
 );
 
 CREATE UNIQUE INDEX teachers_usos_id_uindex

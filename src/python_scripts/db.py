@@ -138,55 +138,11 @@ class UsosDB:
                  f"  users_groups.group_id = ug.unit_group_id "
                  f"JOIN usos_units uu   ON ug.usos_unit_id = uu.usos_unit_id "
                  f"JOIN courses c       ON uu.course = c.course_id "
-                 f"WHERE users_groups.user_id = %(tg_user_id)s;")
+                 f"WHERE users_groups.user_usos_id = %(tg_user_id)s;")
         df = pd.read_sql(query, self.sqlalchemy_engine,
                          params={"tg_user_id": tg_user_id})
         df.columns = ["course_id", "course_name"]
         logging.debug(f"{tg_user_id=}")
-        return df
-
-    def get_user_activities_details(self, tg_user_id, start_date=None,
-                                    end_date=None, course_id=None):
-        course_id_query, end_date_query, start_date_query = "", "", ""
-        query_dict = {"tg_user_id": tg_user_id}
-        if start_date:
-            start_date_query = " AND act.start_time >= %(start_date)s"
-            query_dict["start_date"] = start_date
-        # else:
-        #     start_date_query = " AND act.start_time >= current_timestamp"
-        if end_date:
-            end_date_query = "AND act.start_time <= %(end_date)s"
-            query_dict["end_date"] = end_date
-        if course_id:
-            course_id_query = "AND crs.course_id = %(course_id)s"
-            query_dict["course_id"] = course_id
-        query = (f"SELECT act.activity_id, "
-                 f"       act.start_time at time zone 'cet', "
-                 f"       act.end_time at time zone 'cet', "
-                 f"       act.room, "
-                 f"       grt.group_type_id, "
-                 f"       ung.group_number, "
-                 f"       crs.course_name "
-                 f"FROM courses crs "
-                 f"JOIN usos_units ON "
-                 f"  crs.course_id = usos_units.course "
-                 f"JOIN unit_groups ung ON "
-                 f"  ung.usos_unit_id = usos_units.usos_unit_id "
-                 f"JOIN group_types grt ON "
-                 f"  ung.group_type = grt.group_type_id "
-                 f"JOIN users_groups ON "
-                 f"  ung.unit_group_id = users_groups.group_id "
-                 f"JOIN activities act ON "
-                 f"  act.unit_group = ung.unit_group_id "
-                 f"WHERE users_groups.user_id = %(tg_user_id)s "
-                 f"  {end_date_query} {course_id_query} {start_date_query} "
-                 f"ORDER BY act.start_time;")
-        df = pd.read_sql(query, self.sqlalchemy_engine, params=query_dict,
-                         parse_dates={"start_date": {"format": "%Y-%m-%d"},
-                                      "end_date": {"format": "%Y-%m-%d"}})
-        df.columns = ["activity_id", "start_time", "end_time", "room",
-                      "group_type", "group_number", "course_name"]
-        logging.debug(f"{tg_user_id=} {course_id=} {end_date}")
         return df
 
     def get_specific_value(self, where, where_value, col_name, table="users"):
@@ -389,31 +345,17 @@ class UsosDB:
         cur.close()
         logging.debug(f"{building_id=}, {building_name=}, {longitude=}, {latitude=}")
 
-    def insert_user_group(self, tg_user_id, usos_unit_id, group_number):
+    def insert_user_group(self, user_usos_id: int, unit_group_id: int):
         """Insert a user-unit_group connection if it doesn't exist."""
         cur = self.conn.cursor()
-        group_id_query = (f"SELECT unit_group_id "
-                          f"FROM   public.unit_groups "
-                          f"WHERE (usos_unit_id, group_number) = "
-                          f"(%(usos_unit_id)s, %(group_number)s);")
-        cur.execute(group_id_query, {"usos_unit_id": usos_unit_id,
-                                     "group_number": group_number})
-        ans = cur.fetchone()
-        if ans is None:
-            logging.warning(f"Group {usos_unit_id=} {group_number=} "
-                            f"is unknown, skipping")
-        else:
-            unit_group_id = ans[0]
-            insert_student_query = ("INSERT INTO public.users_groups "
-                                    "(user_id, group_id) "
-                                    "VALUES (%(user_id)s, %(group_id)s)"
-                                    "ON CONFLICT (user_id, group_id) "
-                                    "DO NOTHING ;")
-            cur.execute(insert_student_query, {"user_id": tg_user_id,
-                                               "group_id": unit_group_id})
-            logging.debug(f"{tg_user_id=}, {unit_group_id=}")
+        group_id_query = (f"INSERT INTO public.users_groups (user_usos_id, group_id) "
+                          f"VALUES (%(user_usos_id)s, %(unit_group_id)s) "
+                          f"ON CONFLICT (user_usos_id, group_id) DO NOTHING;")
+        cur.execute(group_id_query, {"user_usos_id": user_usos_id,
+                                     "unit_group_id": unit_group_id})
         self.conn.commit()
         cur.close()
+        logging.debug(f"{user_usos_id=}, {unit_group_id=}")
 
     def insert_study_programme(self, programme_id, programme_name):
         """Inserts a programme if it doesn't exist."""
