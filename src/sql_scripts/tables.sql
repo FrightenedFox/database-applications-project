@@ -1,10 +1,10 @@
 CREATE TABLE users
 (
-    usos_id          integer                               NOT NULL
+    usos_id          INTEGER                               NOT NULL
         CONSTRAINT users_pk
             PRIMARY KEY,
-    first_name       text,
-    last_name        text,
+    first_name       TEXT,
+    last_name        TEXT,
     joined_timestamp timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
@@ -13,11 +13,10 @@ CREATE UNIQUE INDEX users_usos_id_uindex
 
 CREATE TABLE group_types
 (
-    group_type_id   text NOT NULL
+    group_type_id   TEXT NOT NULL
         CONSTRAINT group_types_pk
             PRIMARY KEY,
-    group_type_name text,
-    max_group_size  integer
+    group_type_name TEXT
 );
 
 CREATE UNIQUE INDEX group_types_group_type_id_uindex
@@ -25,12 +24,12 @@ CREATE UNIQUE INDEX group_types_group_type_id_uindex
 
 CREATE TABLE terms
 (
-    usos_term_id text NOT NULL
+    usos_term_id TEXT NOT NULL
         CONSTRAINT terms_pk
             PRIMARY KEY,
-    term_name    text,
-    start_date   date NOT NULL,
-    end_date     date NOT NULL
+    term_name    TEXT,
+    start_date   DATE NOT NULL,
+    end_date     DATE NOT NULL
 );
 
 CREATE UNIQUE INDEX terms_usos_term_id_uindex
@@ -38,11 +37,11 @@ CREATE UNIQUE INDEX terms_usos_term_id_uindex
 
 CREATE TABLE courses
 (
-    course_id   text NOT NULL
+    course_id   TEXT NOT NULL
         CONSTRAINT courses_pk
             PRIMARY KEY,
-    course_name text NOT NULL,
-    term_id     text NOT NULL
+    course_name TEXT NOT NULL,
+    term_id     TEXT NOT NULL
         CONSTRAINT courses_term_id_fk
             REFERENCES terms
             ON DELETE RESTRICT
@@ -51,27 +50,45 @@ CREATE TABLE courses
 CREATE UNIQUE INDEX courses_course_id_uindex
     ON courses (course_id);
 
+CREATE TABLE buildings
+(
+    building_id   TEXT NOT NULL
+        CONSTRAINT buildings_pk
+            PRIMARY KEY,
+    building_name TEXT,
+    longitude     FLOAT,
+    latitude      FLOAT
+);
+
+CREATE UNIQUE INDEX buildings_building_id_uindex
+    ON buildings (building_id);
+
 CREATE TABLE rooms
 (
-    room_id  text NOT NULL
+    room_id      TEXT    NOT NULL
         CONSTRAINT rooms_pk
             PRIMARY KEY,
-    capacity integer DEFAULT 0
+    room_usos_id INTEGER NOT NULL,
+    capacity     INTEGER DEFAULT 0,
+    building_id  TEXT    NOT NULL
+        CONSTRAINT room_building_id_fk
+            REFERENCES buildings
+            ON DELETE RESTRICT
 );
 
 CREATE UNIQUE INDEX rooms_room_id_uindex
     ON rooms (room_id);
 
+CREATE UNIQUE INDEX rooms_room_usos_id_uindex
+    ON rooms (room_usos_id);
+
 CREATE TABLE teachers
 (
-    teacher_usos_id integer NOT NULL
+    teacher_usos_id INTEGER NOT NULL
         CONSTRAINT teachers_pk
             PRIMARY KEY,
-    first_name      text    NOT NULL,
-    last_name       text    NOT NULL,
-    email           text,
-    title           text,
-    private_room    text
+    first_name      TEXT    NOT NULL,
+    last_name       TEXT    NOT NULL
         CONSTRAINT teachers_private_room_fk
             REFERENCES rooms
             ON DELETE RESTRICT
@@ -82,40 +99,40 @@ CREATE UNIQUE INDEX teachers_usos_id_uindex
 
 CREATE TABLE study_programmes
 (
-    programme_id   text NOT NULL
+    programme_id   TEXT NOT NULL
         CONSTRAINT study_programmes_pk
             PRIMARY KEY,
-    programme_name text
+    programme_name TEXT
 );
 
 CREATE UNIQUE INDEX study_programmes_id_uindex
     ON study_programmes (programme_id);
 
-CREATE TABLE course_programme
+CREATE TABLE user_programme
 (
-    course_id      text NOT NULL
-        CONSTRAINT courses_fk
-            REFERENCES courses
+    user_id    INTEGER NOT NULL
+        CONSTRAINT user_programme_user_id_fk
+            REFERENCES users
             ON DELETE RESTRICT,
-    programme_id text    NOT NULL
-        CONSTRAINT programme_fk
+    programme_id TEXT NOT NULL
+        CONSTRAINT user_programme_programme_id_fk
             REFERENCES study_programmes
             ON DELETE RESTRICT
 );
 
 CREATE UNIQUE INDEX course_programme_uindex
-    ON course_programme (course_id, programme_id);
+    ON user_programme (user_id, programme_id);
 
 CREATE TABLE usos_units
 (
-    usos_unit_id integer NOT NULL
+    usos_unit_id INTEGER NOT NULL
         CONSTRAINT usos_units_pk
             PRIMARY KEY,
-    course       text    NOT NULL
+    course       TEXT    NOT NULL
         CONSTRAINT usos_units_course_fk
             REFERENCES courses
             ON DELETE RESTRICT,
-    group_type   text    NOT NULL
+    group_type   TEXT    NOT NULL
         CONSTRAINT usos_units_group_type_fk
             REFERENCES group_types
             ON DELETE RESTRICT
@@ -126,14 +143,14 @@ CREATE UNIQUE INDEX usos_units_usos_unit_id_uindex
 
 CREATE TABLE unit_groups
 (
-    unit_group_id integer GENERATED ALWAYS AS IDENTITY
+    unit_group_id INTEGER GENERATED ALWAYS AS IDENTITY
         CONSTRAINT course_groups_pk
             PRIMARY KEY,
-    usos_unit_id  integer NOT NULL
+    usos_unit_id  INTEGER NOT NULL
         CONSTRAINT unit_groups_course_fk
             REFERENCES usos_units
             ON DELETE RESTRICT,
-    group_number  integer NOT NULL
+    group_number  INTEGER NOT NULL
 );
 
 CREATE UNIQUE INDEX unit_id_group_number_uindex
@@ -141,11 +158,11 @@ CREATE UNIQUE INDEX unit_id_group_number_uindex
 
 CREATE TABLE group_teacher
 (
-    unit_group integer NOT NULL
+    unit_group INTEGER NOT NULL
         CONSTRAINT group_fk
             REFERENCES unit_groups
             ON DELETE RESTRICT,
-    teacher    integer NOT NULL
+    teacher    INTEGER NOT NULL
         CONSTRAINT teacher_fk
             REFERENCES teachers
             ON DELETE RESTRICT
@@ -156,16 +173,16 @@ CREATE UNIQUE INDEX group_teacher_uindex
 
 CREATE TABLE activities
 (
-    activity_id integer GENERATED ALWAYS AS IDENTITY
+    activity_id INTEGER GENERATED ALWAYS AS IDENTITY
         CONSTRAINT activities_pk
             PRIMARY KEY,
     start_time  timestamptz NOT NULL,
     end_time    timestamptz NOT NULL,
-    room        text        NOT NULL
+    room        TEXT
         CONSTRAINT activities_room_fk
             REFERENCES rooms
             ON DELETE RESTRICT,
-    unit_group  integer     NOT NULL
+    unit_group  INTEGER     NOT NULL
         CONSTRAINT activities_unit_group_fk
             REFERENCES unit_groups
             ON DELETE RESTRICT
@@ -179,11 +196,11 @@ CREATE UNIQUE INDEX activities_group_collision_uindex
 
 CREATE TABLE course_manager
 (
-    course  text    NOT NULL
+    course  TEXT    NOT NULL
         CONSTRAINT course_fk
             REFERENCES courses
             ON DELETE RESTRICT,
-    manager integer NOT NULL
+    manager INTEGER NOT NULL
         CONSTRAINT manager_fk
             REFERENCES teachers
             ON DELETE RESTRICT
@@ -194,11 +211,11 @@ CREATE UNIQUE INDEX course_manager_uindex
 
 CREATE TABLE users_groups
 (
-    user_usos_id  integer NOT NULL
+    user_usos_id INTEGER NOT NULL
         CONSTRAINT users_fk
             REFERENCES users
             ON DELETE RESTRICT,
-    group_id integer NOT NULL
+    group_id     INTEGER NOT NULL
         CONSTRAINT groups_fk
             REFERENCES unit_groups
             ON DELETE RESTRICT

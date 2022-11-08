@@ -1,12 +1,22 @@
+import asyncio
 import datetime as dt
 import logging
+
+import pytz
 
 from config.config import app_config
 from db import UsosDB
 from usosapi.usosapi import USOSAPIConnection
 
+pl_tz = pytz.timezone("Europe/Warsaw")
 
-def pull_data(db: UsosDB):
+
+def daterange(start_date: dt.date | dt.datetime, end_date: dt.date | dt.datetime, step: int = 1):
+    for n in range(0, int((end_date - start_date).days), step):
+        yield start_date + dt.timedelta(days=n)
+
+
+async def pull_data(db: UsosDB):
     usos_connection = USOSAPIConnection(
         api_base_address=app_config.usosapi.api_base_address,
         consumer_key=app_config.usosapi.consumer_key,
@@ -36,9 +46,9 @@ def pull_data(db: UsosDB):
             )
 
         groups_participant = usos_connection.get(
-            service="services/groups/participant",
+            service="services/groups/user",
             fields="course_unit_id|group_number|class_type|class_type_id|"
-                   "course_id|course_name|term_id|lecturers|participants",
+                   "course_id|course_name|term_id|participants",
             active_terms=True,
         )
         active_terms = [
@@ -46,7 +56,6 @@ def pull_data(db: UsosDB):
             for term in groups_participant["terms"]
             if dt.date.today() < dt.date.fromisoformat(term["end_date"])
         ]
-        print(active_terms)
         unit_ids = []
         for active_term in active_terms:
             if not db.row_exists(key_value=active_term,
@@ -94,9 +103,86 @@ def pull_data(db: UsosDB):
             courses_unit_response = usos_connection.get(
                 service="services/courses/unit",
                 unit_id=unit_id,
-                fields="id|groups[group_number|class_type|class_type_id|lecturers]"
+                fields="id|course_id|term_id|"
+                       "groups[group_number|class_type|class_type_id|lecturers]"
             )
-            print(courses_unit_response)
+            coordinators = usos_connection.get(
+                service="services/courses/course_edition",
+                course_id=courses_unit_response["course_id"],
+                term_id=courses_unit_response["term_id"],
+                fields="coordinators"
+            )["coordinators"]
+
+            for coordinator in coordinators:
+                db.upsert_teacher(coordinator["id"],
+                                  coordinator["first_name"],
+                                  coordinator["last_name"])
+                db.insert_course_manager(
+                    course_id=courses_unit_response["course_id"],
+                    teacher_id=coordinator["id"]
+                )
+
+            start_time, end_time = db.get_unit_term_info(courses_unit_response["term_id"])
+            for group in courses_unit_response["groups"]:
+                # Teachers
+                for lecturer in group["lecturers"]:
+                    db.upsert_teacher(lecturer["id"],
+                                      lecturer["first_name"],
+                                      lecturer["last_name"])
+                    db.insert_group_teacher(unit_group_index, lecturer["id"])
+
+                # Unit groups
+                unit_group_index = db.upsert_unit_group(unit_id,
+                                                        group["group_number"])
+
+                for date in daterange(start_date=start_time, end_date=end_time, step=7):
+                    timetable_group = usos_connection.get(
+                        service="services/tt/classgroup",
+                        unit_id=unit_id,
+                        group_number=group["group_number"],
+                        start=date.isoformat(),
+                        days=7,
+                        fields="start_time|end_time|room_number|room_id",
+                    )
+                    for activity in timetable_group:
+                        start_time_naive = dt.datetime.fromisoformat(activity["start_time"])
+                        end_time_naive = dt.datetime.fromisoformat(activity["end_time"])
+                        start_time_pl_tz = pl_tz.localize(start_time_naive, is_dst=True)
+                        end_time_pl_tz = pl_tz.localize(end_time_naive, is_dst=True)
+                        logging.debug(activity["room_id"], activity["room_number"])
+
+                        # Add room and building
+                        if activity["room_id"] is not None and not db.row_exists(
+                                key_value=activity["room_number"],
+                                key_column="room_id",
+                                table="rooms"
+                        ):
+                            room_building_info = usos_connection.get(
+                                service="services/geo/room",
+                                room_id=activity["room_id"],
+                                fields="id|number|building|capacity",
+                            )
+                            building_info = room_building_info["building"]
+                            db.insert_building(
+                                building_id=building_info["id"],
+                                building_name=building_info["name"]["pl"],
+                                longitude=building_info["location"]["long"],
+                                latitude=building_info["location"]["lat"]
+                            )
+                            db.insert_room(room_id=room_building_info["number"],
+                                           room_usos_id=room_building_info["id"],
+                                           capacity=room_building_info["capacity"],
+                                           building_id=building_info["id"])
+
+                        # Activity
+                        db.upsert_activities(
+                            start_time=start_time_pl_tz,
+                            end_time=end_time_pl_tz,
+                            room=activity["room_number"],
+                            unit_group=unit_group_index,
+                        )
+                    break
+                    await asyncio.sleep(1)
 
         # print(unit_ids)
-
+    usos_connection.logout()
