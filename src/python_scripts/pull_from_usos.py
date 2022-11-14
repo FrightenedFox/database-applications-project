@@ -28,16 +28,18 @@ async def pull_data(db: UsosDB):
     logging.info(f"Authorization is successful: {usos_connection.is_authorized()}")
 
     user_info = usos_connection.current_identity()
+    await asyncio.sleep(0.5)
     user_info["usos_id"] = user_info.pop("id")
     if not db.row_exists(key_value=user_info["usos_id"],
                          key_column="usos_id",
-                         table="users"):  # or True: (for debugging)
+                         table="users"):  # or True (for debugging)
         db.create_user(**user_info)
 
         student_programmes = usos_connection.get(
             service="services/progs/student",
             user_id=user_info["usos_id"],
         )
+        await asyncio.sleep(0.5)
         for programme in student_programmes:
             db.insert_study_programme(
                 programme_id=programme["programme"]["id"],
@@ -47,14 +49,13 @@ async def pull_data(db: UsosDB):
                 programme["programme"]["id"],
                 user_id=user_info["usos_id"]
             )
-        await asyncio.sleep(0.2)
-
         groups_participant = usos_connection.get(
             service="services/groups/user",
             fields="course_unit_id|group_number|class_type|class_type_id|"
                    "course_id|course_name|term_id|participants",
             active_terms=True,
         )
+        await asyncio.sleep(0.5)
         active_terms = [
             term["id"]
             for term in groups_participant["terms"]
@@ -70,7 +71,7 @@ async def pull_data(db: UsosDB):
                     term_id=active_term,
                     fields="name|start_date|end_date"
                 )
-                await asyncio.sleep(0.2)
+                await asyncio.sleep(1)
                 db.insert_term(active_term,
                                active_term_info["name"]["pl"],
                                active_term_info["start_date"],
@@ -111,7 +112,10 @@ async def pull_data(db: UsosDB):
                         db.create_user(**student_info)
                         db.insert_user_group(user_usos_id=student_info["usos_id"],
                                              unit_group_id=unit_group_id)
-
+                        db.insert_user_programme(
+                            student_programmes[0]["programme"]["id"],
+                            user_id=student_info["usos_id"]
+                        )
         for unit_id in unit_ids:
             courses_unit_response = usos_connection.get(
                 service="services/courses/unit",
@@ -119,13 +123,14 @@ async def pull_data(db: UsosDB):
                 fields="id|course_id|term_id|"
                        "groups[group_number|class_type|class_type_id|lecturers]"
             )
+            await asyncio.sleep(0.5)
             coordinators = usos_connection.get(
                 service="services/courses/course_edition",
                 course_id=courses_unit_response["course_id"],
                 term_id=courses_unit_response["term_id"],
                 fields="coordinators"
             )["coordinators"]
-
+            await asyncio.sleep(0.5)
             for coordinator in coordinators:
                 db.upsert_teacher(coordinator["id"],
                                   coordinator["first_name"],
@@ -157,7 +162,7 @@ async def pull_data(db: UsosDB):
                         days=7,
                         fields="start_time|end_time|room_number|room_id",
                     )
-                    await asyncio.sleep(0.3)
+                    await asyncio.sleep(2)
                     for activity in timetable_group:
                         start_time_naive = dt.datetime.fromisoformat(activity["start_time"])
                         end_time_naive = dt.datetime.fromisoformat(activity["end_time"])
@@ -175,7 +180,7 @@ async def pull_data(db: UsosDB):
                                 room_id=activity["room_id"],
                                 fields="id|number|building|capacity",
                             )
-                            await asyncio.sleep(0.2)
+                            await asyncio.sleep(1)
                             building_info = room_building_info["building"]
                             db.insert_building(
                                 building_id=building_info["id"],
@@ -195,6 +200,4 @@ async def pull_data(db: UsosDB):
                             room=activity["room_number"],
                             unit_group=unit_group_index,
                         )
-
-        # print(unit_ids)
     usos_connection.logout()

@@ -4,3 +4,4 @@ rauth
 requests
 sqlalchemy
 pytz
+streamlit
