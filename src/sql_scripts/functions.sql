@@ -30,13 +30,9 @@ BEGIN
     SELECT start_time, end_time, unit_group from activities
     JOIN unit_groups ug on activities.unit_group = ug.unit_group_id
     JOIN users_groups u on ug.unit_group_id = u.group_id
-    JOIN users u2 on u2.usos_id = u.user_usos_id;
-
-end;
-
-
-$$
-
+    JOIN users u2 on u2.usos_id = u.user_usos_id where usos_id = id_studenta;
+end; $$;
+/*
 -- 6
 create or replace procedure ilosc_godzin_wykladowcy(wykladowca in teachers.teacher_usos_id%TYPE)
 language plpgsql
