@@ -30,7 +30,7 @@
 
 7. **Łączna liczba godzin pracy studenta.**
 
-   Analogicznie jak punkt 7, tylko dla studenta (`users.usos_id`).
+   Analogicznie jak punkt 6, tylko dla studenta (`users.usos_id`).
 
 8. **Policz odległość pomiędzy dwoma punktami A i B za ich współrzędnymi geograficznymi.**
 
