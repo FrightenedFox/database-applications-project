@@ -32,7 +32,7 @@ async def pull_data(db: UsosDB):
     user_info["usos_id"] = user_info.pop("id")
     if not db.row_exists(key_value=user_info["usos_id"],
                          key_column="usos_id",
-                         table="users"):  # or True (for debugging)
+                         table="users") or True:  # (for debugging)
         db.create_user(**user_info)
 
         student_programmes = usos_connection.get(
