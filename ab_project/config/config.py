@@ -26,5 +26,5 @@ class Config(Sections):
         Sections.__init__(self, raw_config_parser)
 
 raw_config = configparser.ConfigParser()
-raw_config.read('config/config.ini')
+raw_config.read('ab_project/config/config.ini')
 app_config = Config(raw_config)
