@@ -12,6 +12,7 @@ def initialize_logging():
     root_logger = logging.getLogger()
 
     log_filepath = f"{app_config.logging.log_path}/{app_config.logging.log_filename}.log"
+    os.makedirs(app_config.logging.log_path, exist_ok=True)
     if not os.path.exists(log_filepath):
         with open(log_filepath, "w") as _:
             msg = f"New log file was created at: {os.path.abspath(log_filepath)}"
