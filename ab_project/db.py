@@ -5,7 +5,7 @@ import pandas as pd
 import psycopg2
 import sqlalchemy
 
-from config.config import app_config
+from ab_project.config.config import app_config
 
 
 def get_nice_string(input_list: list[str]):

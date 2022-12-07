@@ -1,6 +1,6 @@
 import logging
 
-from config.config import app_config
+from ab_project.config.config import app_config
 
 
 def initialize_logging():

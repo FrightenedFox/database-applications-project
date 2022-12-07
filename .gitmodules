@@ -1,6 +1,3 @@
-[submodule "src/python_scripts/usosapi-python"]
-	path = src/python_scripts/usosapi_python/
-	url = https://github.com/FrightenedFox/usosapi-python
-[submodule "src/python_scripts/usosapi"]
-	path = src/python_scripts/usosapi
+[submodule "ab_project/usosapi"]
+	path = ab_project/usosapi
 	url = https://github.com/FrightenedFox/usosapi-python

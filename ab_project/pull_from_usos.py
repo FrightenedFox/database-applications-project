@@ -4,9 +4,9 @@ import logging
 
 import pytz
 
-from config.config import app_config
-from db import UsosDB
-from usosapi.usosapi import USOSAPIConnection
+from ab_project.config.config import app_config
+from ab_project.db import UsosDB
+from ab_project.usosapi.usosapi import USOSAPIConnection
 
 pl_tz = pytz.timezone("Europe/Warsaw")
 
