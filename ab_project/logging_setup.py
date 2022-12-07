@@ -1,4 +1,5 @@
 import logging
+import os
 
 from ab_project.config.config import app_config
 
@@ -11,16 +12,20 @@ def initialize_logging():
     root_logger = logging.getLogger()
 
     log_filepath = f"{app_config.logging.log_path}/{app_config.logging.log_filename}.log"
-    with open(log_filepath, "r") as log_file:
-        log_history = sum(1 for _ in log_file)
-
-    if log_history > int(app_config.logging.max_history):
+    if not os.path.exists(log_filepath):
         with open(log_filepath, "w") as _:
-            msg = f"Log file was cleaned (history > {app_config.logging.max_history})."
-    elif log_history > 0.8 * int(app_config.logging.max_history):
-        msg = f"You've reached 80% of logging max history ({log_history} lines). Log file may be cleared soon."
+            msg = f"New log file was created at: {os.path.abspath(log_filepath)}"
     else:
-        msg = None
+        with open(log_filepath, "r") as log_file:
+            log_history = sum(1 for _ in log_file)
+
+        if log_history > int(app_config.logging.max_history):
+            with open(log_filepath, "w") as _:
+                msg = f"Log file was cleaned (history > {app_config.logging.max_history})."
+        elif log_history > 0.8 * int(app_config.logging.max_history):
+            msg = f"You've reached 80% of logging max history ({log_history} lines). Log file may be cleared soon."
+        else:
+            msg = None
 
     file_handler = logging.FileHandler(log_filepath)
     file_handler.setFormatter(log_formatter)
