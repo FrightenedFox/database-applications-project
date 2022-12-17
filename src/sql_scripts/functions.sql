@@ -1,31 +1,34 @@
 -- 1
 CREATE OR REPLACE FUNCTION sprawdzanie_wolnego_miejsca(grupa_id unit_groups.unit_group_id%TYPE)
-    RETURNS wynik
+    RETURNS boolean
     LANGUAGE plpgsql
 AS
 $$
 DECLARE
-    ilosc_osob integer
-
+    ilosc_osob integer;
+    rozmiar_sali integer;
 BEGIN
+    SELECT MIN(capacity)
+    FROM rooms into rozmiar_sali
+             INNER JOIN activities a ON rooms.room_id = a.room
+             INNER JOIN unit_groups ug ON ug.unit_group_id = a.unit_group
+    WHERE unit_group_id = grupa_id;
+
     SELECT COUNT(user_usos_id)
-    INTO ilosc_osob
-    FROM users_groups
-             JOIN unit_groups ug ON ug.unit_group_id = users_groups.group_id
-             JOIN activities a ON ug.unit_group_id = a.unit_group
-             JOIN rooms r ON a.room = r.room_id
-    WHERE users_groups.group_id = grupa_id;
+FROM users_groups into ilosc_osob
+         INNER JOIN unit_groups ug ON ug.unit_group_id = users_groups.group_id
+WHERE unit_group_id = grupa_id;
 
-
-    IF ilosc_osob > rooms.capacity
+    IF ilosc_osob > rozmiar_sali
     THEN
-        wynik = FALSE;
+        RETURN FALSE;
     ELSE
-        wynik = TRUE;
+        RETURN TRUE;
 
     END IF;
 END
 $$;
+SELECT sprawdzanie_wolnego_miejsca(113);
 --2
 CREATE OR REPLACE FUNCTION zajecia_studenta_w_danym_czasie(student users.usos_id%TYPE,
                                                            czas_poczatkowy activities.start_time%TYPE,
@@ -175,7 +178,7 @@ BEGIN
     RETURN laczny_czas;
 END;
 $$ LANGUAGE plpgsql;
-SELECT ilosc_godzin_studenta(233921);
+SELECT ilosc_godzin_studenta(234394);
 
 -- 8
 CREATE OR REPLACE FUNCTION odleglosc_miedzy_budynkami(budynek_a_id buildings.building_id%TYPE,
@@ -190,13 +193,19 @@ DECLARE
     szerokosc_a DOUBLE PRECISION;
     budynek_b   buildings%ROWTYPE;
 BEGIN
-    SELECT radians(bud.longitude), radians(bud.latitude) INTO dlugosc_a, szerokosc_a FROM buildings bud WHERE building_id = budynek_a_id;
-    SELECT bud.building_id, bud.building_name ,radians(bud.longitude), radians(bud.latitude) INTO budynek_b FROM buildings bud WHERE building_id = budynek_b_id;
+    SELECT RADIANS(bud.longitude), RADIANS(bud.latitude)
+    INTO dlugosc_a, szerokosc_a
+    FROM buildings bud
+    WHERE building_id = budynek_a_id;
+    SELECT bud.building_id, bud.building_name, RADIANS(bud.longitude), RADIANS(bud.latitude)
+    INTO budynek_b
+    FROM buildings bud
+    WHERE building_id = budynek_b_id;
     odleglosc = 2 * 6371000 * ASIN(SQRT(SIN((budynek_b.longitude - dlugosc_a) / 2) ^ 2 +
                                         COS(dlugosc_a) * COS(budynek_b.longitude) *
-                                       SIN((budynek_b.latitude - szerokosc_a) / 2) ^ 2));
+                                        SIN((budynek_b.latitude - szerokosc_a) / 2) ^ 2));
 
     RETURN odleglosc;
 END;
 $$
-Select odleglosc_miedzy_budynkami('F','P')
+SELECT odleglosc_miedzy_budynkami('F', 'P')
