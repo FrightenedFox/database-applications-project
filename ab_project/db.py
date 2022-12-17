@@ -301,12 +301,12 @@ class UsosDB:
         query = ("SELECT DISTINCT tr.usos_term_id, tr.term_name "
                  "FROM public.terms tr "
                  "INNER JOIN courses c ON tr.usos_term_id = c.term_id "
-                 "INNER JOIN usos_units uu ON c.course_id = uu.course "
-                 "INNER JOIN unit_groups ug ON uu.usos_unit_id = ug.usos_unit_id "
-                 "INNER JOIN users_groups u ON ug.unit_group_id = u.group_id "
-                 "INNER JOIN users u2 ON u2.usos_id = u.user_usos_id "
-                 "INNER JOIN user_programme up ON u2.usos_id = up.user_id "
-                 "INNER JOIN study_programmes sp ON sp.programme_id = up.programme_id "
+                 "INNER JOIN usos_units uun ON c.course_id = uun.course "
+                 "INNER JOIN unit_groups ugr ON uun.usos_unit_id = ugr.usos_unit_id "
+                 "INNER JOIN users_groups ugr ON ugr.unit_group_id = ugr.group_id "
+                 "INNER JOIN users u ON u.usos_id = ugr.user_usos_id "
+                 "INNER JOIN user_programme upr ON u.usos_id = upr.user_id "
+                 "INNER JOIN study_programmes sp ON sp.programme_id = upr.programme_id "
                  "WHERE sp.programme_id = %(programme_id)s;")
         df = pd.read_sql(query, self.sqlalchemy_engine, params={"programme_id": programme_id})
         logging.debug(f"Get terms for {programme_id=}.")
@@ -316,12 +316,12 @@ class UsosDB:
         query = ("SELECT DISTINCT c.course_id, c.course_name "
                  "FROM public.terms tr "
                  "INNER JOIN courses c ON tr.usos_term_id = c.term_id "
-                 "INNER JOIN usos_units uu ON c.course_id = uu.course "
-                 "INNER JOIN unit_groups ug ON uu.usos_unit_id = ug.usos_unit_id "
-                 "INNER JOIN users_groups u ON ug.unit_group_id = u.group_id "
-                 "INNER JOIN users u2 ON u2.usos_id = u.user_usos_id "
-                 "INNER JOIN user_programme up ON u2.usos_id = up.user_id "
-                 "INNER JOIN study_programmes sp ON sp.programme_id = up.programme_id "
+                 "INNER JOIN usos_units uun ON c.course_id = uun.course "
+                 "INNER JOIN unit_groups ugr ON uun.usos_unit_id = ugr.usos_unit_id "
+                 "INNER JOIN users_groups ugr ON ugr.unit_group_id = ugr.group_id "
+                 "INNER JOIN users u ON u.usos_id = ugr.user_usos_id "
+                 "INNER JOIN user_programme upr ON u.usos_id = upr.user_id "
+                 "INNER JOIN study_programmes sp ON sp.programme_id = upr.programme_id "
                  "WHERE sp.programme_id = %(programme_id)s "
                  "  AND tr.usos_term_id = %(usos_term_id)s;")
         df = pd.read_sql(query, self.sqlalchemy_engine,
@@ -330,123 +330,130 @@ class UsosDB:
         logging.debug(f"Get terms for {programme_id=}, {usos_term_id=}.")
         return df
 
+    def get_group_types(self, usos_term_id: str, course_id: str):
+        query = ("SELECT grt.group_type_id "
+                 "FROM public.group_types grt "
+                 "INNER JOIN usos_units uu ON grt.group_type_id = uu.group_type "
+                 "INNER JOIN courses c ON c.course_id = uu.course "
+                 "INNER JOIN terms tr ON tr.usos_term_id = c.term_id "
+                 "WHERE c.course_id = %(course_id)s "
+                 "  AND tr.usos_term_id = %(usos_term_id)s;")
+        df = pd.read_sql(query, self.sqlalchemy_engine,
+                         params={"usos_term_id": usos_term_id,
+                                 "course_id": course_id})
+        logging.debug(f"Get terms for {programme_id=}, {usos_term_id=}.")
+        return df
 
-def get_all_from_table(self, table: str,
-                       column: str = "*"):
-    cur = self.conn.cursor()
-    query = f"SELECT {column} FROM {table};"
-    cur.execute(query)
-    ans = cur.fetchall()
-    cur.close()
-    logging.debug(f"Get {column} from {table}.")
-    return ans
+    def get_all_from_table(self, table: str,
+                           column: str = "*"):
+        cur = self.conn.cursor()
+        query = f"SELECT {column} FROM {table};"
+        cur.execute(query)
+        ans = cur.fetchall()
+        cur.close()
+        logging.debug(f"Get {column} from {table}.")
+        return ans
 
+    def pandas_get_all_from_table(self, table: str,
+                                  column: str = "*"):
+        query = f"SELECT {column} FROM {table};"
+        df = pd.read_sql(query, self.sqlalchemy_engine)
+        logging.debug(f"Pandas get {column} from {table}.")
+        return df
 
-def pandas_get_all_from_table(self, table: str,
-                              column: str = "*"):
-    query = f"SELECT {column} FROM {table};"
-    df = pd.read_sql(query, self.sqlalchemy_engine)
-    logging.debug(f"Pandas get {column} from {table}.")
-    return df
+    def get_all_unit_groups(self):
+        cur = self.conn.cursor()
+        query = ("SELECT (unit_group_id, usos_unit_id, group_number) "
+                 "FROM unit_groups;")
+        cur.execute(query)
+        ans = cur.fetchall()
+        cur.close()
+        logging.debug(f"Get all groups from unit_groups table")
+        return [row[0][1:-1].split(",") for row in ans]
 
+    def upsert_returning(
+            self,
+            table: str,
+            items: list[dict[str, Any]] | dict[str, Any],
+            update_columns: list[str] | str | None = None,
+            returning_columns: list[str] | str | None = None
+    ):
+        """Updates or inserts any table."""
+        if isinstance(items, dict):
+            items = [items]
+        if isinstance(update_columns, str):
+            update_columns = [update_columns]
+        if isinstance(returning_columns, str):
+            returning_columns = [returning_columns]
 
-def get_all_unit_groups(self):
-    cur = self.conn.cursor()
-    query = ("SELECT (unit_group_id, usos_unit_id, group_number) "
-             "FROM unit_groups;")
-    cur.execute(query)
-    ans = cur.fetchall()
-    cur.close()
-    logging.debug(f"Get all groups from unit_groups table")
-    return [row[0][1:-1].split(",") for row in ans]
+        column_list = get_nice_string(list(items[0].keys()))
 
+        values_list = ""
+        for items_part in items:
+            values_list += "\n\t( %s )," % get_nice_string(list(items_part.values()))
+        values_list = values_list[-1]
 
-def upsert_returning(
-        self,
-        table: str,
-        items: list[dict[str, Any]] | dict[str, Any],
-        update_columns: list[str] | str | None = None,
-        returning_columns: list[str] | str | None = None
-):
-    """Updates or inserts any table."""
-    if isinstance(items, dict):
-        items = [items]
-    if isinstance(update_columns, str):
-        update_columns = [update_columns]
-    if isinstance(returning_columns, str):
-        returning_columns = [returning_columns]
+        if update_columns is not None:
+            upsert_query = "ON CONFLICT DO UPDATE SET"
+            for update_column in update_columns:
+                upsert_query += f"\n\t{update_column} = excluded.{update_column},"
+            upsert_query = upsert_query[:-1]
+        else:
+            upsert_query = ""
 
-    column_list = get_nice_string(list(items[0].keys()))
+        if returning_columns is not None:
+            return_query = "RETURNING %s" % get_nice_string(returning_columns)
+        else:
+            return_query = ""
 
-    values_list = ""
-    for items_part in items:
-        values_list += "\n\t( %s )," % get_nice_string(list(items_part.values()))
-    values_list = values_list[-1]
+        query = (f"INSERT INTO {table} ({column_list}) VALUES {values_list} "
+                 f"{upsert_query} {return_query};")
+        logging.debug(query)
+        cur = self.conn.cursor()
+        cur.execute(query)
+        ans = cur.fetchall()
+        cur.close()
+        return ans
 
-    if update_columns is not None:
-        upsert_query = "ON CONFLICT DO UPDATE SET"
-        for update_column in update_columns:
-            upsert_query += f"\n\t{update_column} = excluded.{update_column},"
-        upsert_query = upsert_query[:-1]
-    else:
-        upsert_query = ""
+    def get_all_user_courses(self, tg_user_id):
+        query = (f"SELECT DISTINCT c.course_id, c.course_name "
+                 f"FROM users_groups "
+                 f"JOIN unit_groups ug  ON "
+                 f"  users_groups.group_id = ug.unit_group_id "
+                 f"JOIN usos_units uu   ON ug.usos_unit_id = uu.usos_unit_id "
+                 f"JOIN courses c       ON uu.course = c.course_id "
+                 f"WHERE users_groups.user_usos_id = %(tg_user_id)s;")
+        df = pd.read_sql(query, self.sqlalchemy_engine,
+                         params={"tg_user_id": tg_user_id})
+        df.columns = ["course_id", "course_name"]
+        logging.debug(f"{tg_user_id=}")
+        return df
 
-    if returning_columns is not None:
-        return_query = "RETURNING %s" % get_nice_string(returning_columns)
-    else:
-        return_query = ""
+    def get_specific_value(self, where, where_value, col_name, table="users"):
+        """Retrieves a specific value from a specific row."""
+        cur = self.conn.cursor()
+        query = (f"SELECT {col_name} "
+                 f"FROM   {table} "
+                 f"WHERE  {where} = %s;")
+        cur.execute(query, (where_value,))
+        ans = cur.fetchone()
+        cur.close()
+        logging.debug(f"{query=}\t{where_value=}")
+        return ans
 
-    query = (f"INSERT INTO {table} ({column_list}) VALUES {values_list} "
-             f"{upsert_query} {return_query};")
-    logging.debug(query)
-    cur = self.conn.cursor()
-    cur.execute(query)
-    ans = cur.fetchall()
-    cur.close()
-    return ans
-
-
-def get_all_user_courses(self, tg_user_id):
-    query = (f"SELECT DISTINCT c.course_id, c.course_name "
-             f"FROM users_groups "
-             f"JOIN unit_groups ug  ON "
-             f"  users_groups.group_id = ug.unit_group_id "
-             f"JOIN usos_units uu   ON ug.usos_unit_id = uu.usos_unit_id "
-             f"JOIN courses c       ON uu.course = c.course_id "
-             f"WHERE users_groups.user_usos_id = %(tg_user_id)s;")
-    df = pd.read_sql(query, self.sqlalchemy_engine,
-                     params={"tg_user_id": tg_user_id})
-    df.columns = ["course_id", "course_name"]
-    logging.debug(f"{tg_user_id=}")
-    return df
-
-
-def get_specific_value(self, where, where_value, col_name, table="users"):
-    """Retrieves a specific value from a specific row."""
-    cur = self.conn.cursor()
-    query = (f"SELECT {col_name} "
-             f"FROM   {table} "
-             f"WHERE  {where} = %s;")
-    cur.execute(query, (where_value,))
-    ans = cur.fetchone()
-    cur.close()
-    logging.debug(f"{query=}\t{where_value=}")
-    return ans
-
-
-def update_specific_value(self, where, where_value,
-                          col_name, col_name_value,
-                          table="users"):
-    """Updates a specific value from a specific row."""
-    cur = self.conn.cursor()
-    query = (f"UPDATE    {table} "
-             f"SET       {col_name} = %(col_name_value)s "
-             f"WHERE     {where} = %(where_value)s; ")
-    cur.execute(query, {"col_name_value": col_name_value,
-                        "where_value": where_value, })
-    self.conn.commit()
-    cur.close()
-    logging.debug(f"{query=}\t{col_name_value=}, {where_value=}")
+    def update_specific_value(self, where, where_value,
+                              col_name, col_name_value,
+                              table="users"):
+        """Updates a specific value from a specific row."""
+        cur = self.conn.cursor()
+        query = (f"UPDATE    {table} "
+                 f"SET       {col_name} = %(col_name_value)s "
+                 f"WHERE     {where} = %(where_value)s; ")
+        cur.execute(query, {"col_name_value": col_name_value,
+                            "where_value": where_value, })
+        self.conn.commit()
+        cur.close()
+        logging.debug(f"{query=}\t{col_name_value=}, {where_value=}")
 
 
 if __name__ == "__main__":
