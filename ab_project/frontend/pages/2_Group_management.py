@@ -39,7 +39,7 @@ def main():
 
 if __name__ == '__main__':
     st.set_page_config(
-        page_title="USOS User management",
+        page_title="USOS group management",
     )
     if "db" not in st.session_state:
         st.session_state["db"] = init_connection()
