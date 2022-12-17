@@ -303,8 +303,8 @@ class UsosDB:
                  "INNER JOIN courses c ON tr.usos_term_id = c.term_id "
                  "INNER JOIN usos_units uun ON c.course_id = uun.course "
                  "INNER JOIN unit_groups ugr ON uun.usos_unit_id = ugr.usos_unit_id "
-                 "INNER JOIN users_groups ugr ON ugr.unit_group_id = ugr.group_id "
-                 "INNER JOIN users u ON u.usos_id = ugr.user_usos_id "
+                 "INNER JOIN users_groups usg ON ugr.unit_group_id = usg.group_id "
+                 "INNER JOIN users u ON u.usos_id = usg.user_usos_id "
                  "INNER JOIN user_programme upr ON u.usos_id = upr.user_id "
                  "INNER JOIN study_programmes sp ON sp.programme_id = upr.programme_id "
                  "WHERE sp.programme_id = %(programme_id)s;")
@@ -318,8 +318,8 @@ class UsosDB:
                  "INNER JOIN courses c ON tr.usos_term_id = c.term_id "
                  "INNER JOIN usos_units uun ON c.course_id = uun.course "
                  "INNER JOIN unit_groups ugr ON uun.usos_unit_id = ugr.usos_unit_id "
-                 "INNER JOIN users_groups ugr ON ugr.unit_group_id = ugr.group_id "
-                 "INNER JOIN users u ON u.usos_id = ugr.user_usos_id "
+                 "INNER JOIN users_groups usg ON ugr.unit_group_id = usg.group_id "
+                 "INNER JOIN users u ON u.usos_id = usg.user_usos_id "
                  "INNER JOIN user_programme upr ON u.usos_id = upr.user_id "
                  "INNER JOIN study_programmes sp ON sp.programme_id = upr.programme_id "
                  "WHERE sp.programme_id = %(programme_id)s "
@@ -341,7 +341,34 @@ class UsosDB:
         df = pd.read_sql(query, self.sqlalchemy_engine,
                          params={"usos_term_id": usos_term_id,
                                  "course_id": course_id})
-        logging.debug(f"Get terms for {programme_id=}, {usos_term_id=}.")
+        logging.debug(f"Get group types for {course_id=}, {usos_term_id=}.")
+        return df
+
+    def get_unit_groups(self, usos_term_id: str, course_id: str, group_type: str):
+        query = ("SELECT ung.unit_group_id, ung.group_number "
+                 "FROM public.unit_groups ung "
+                 "INNER JOIN usos_units uu ON uu.usos_unit_id = ung.usos_unit_id "
+                 "INNER JOIN courses c ON c.course_id = uu.course "
+                 "INNER JOIN terms tr ON tr.usos_term_id = c.term_id "
+                 "WHERE uu.group_type = %(group_type)s"
+                 "  AND c.course_id =  %(course_id)s"
+                 "  AND tr.usos_term_id = %(usos_term_id)s;")
+        df = pd.read_sql(query, self.sqlalchemy_engine,
+                         params={"usos_term_id": usos_term_id,
+                                 "course_id": course_id,
+                                 "group_type": group_type})
+        logging.debug(f"Get unit group for {course_id=}, {usos_term_id=} {group_type=}.")
+        return df
+
+    def get_users(self, unit_group_id: int):
+        query = ("SELECT u.usos_id, u.first_name, u.last_name "
+                 "FROM public.users u "
+                 "         INNER JOIN users_groups ugr ON u.usos_id = ugr.user_usos_id "
+                 "         INNER JOIN unit_groups ung ON ung.unit_group_id = ugr.group_id "
+                 "WHERE ung.unit_group_id = %(unit_group_id)s;")
+        df = pd.read_sql(query, self.sqlalchemy_engine,
+                         params={"unit_group_id": unit_group_id})
+        logging.debug(f"Get users for {unit_group_id=}.")
         return df
 
     def get_all_from_table(self, table: str,
