@@ -297,6 +297,16 @@ class UsosDB:
         logging.debug(f"{usos_term_id=}, term timings: {ans}")
         return ans
 
+    def get_all_from_table(self, table: str,
+                           column: str = "*"):
+        cur = self.conn.cursor()
+        query = f"SELECT {column} FROM {table};"
+        cur.execute(query)
+        ans = cur.fetchall()
+        cur.close()
+        logging.debug(f"Get {column} from {table}.")
+        return ans
+
     def get_all_unit_groups(self):
         cur = self.conn.cursor()
         query = ("SELECT (unit_group_id, usos_unit_id, group_number) "
