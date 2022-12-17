@@ -371,6 +371,19 @@ class UsosDB:
         logging.debug(f"Get users for {unit_group_id=}.")
         return df
 
+    def get_unit_group_teacher(self, unit_group_id: int):
+        cur = self.conn.cursor()
+        query = (f"SELECT t.teacher_usos_id, t.first_name, t.last_name "
+                 f"FROM teachers t "
+                 f"         INNER JOIN group_teacher gt ON t.teacher_usos_id = gt.teacher "
+                 f"         INNER JOIN unit_groups ug ON gt.unit_group = ug.unit_group_id "
+                 f"WHERE unit_group_id = %(unit_group_id)s;")
+        cur.execute(query, {"unit_group_id": unit_group_id})
+        ans = cur.fetchone()
+        cur.close()
+        logging.debug(f"Get unit group teacher {unit_group_id=}.")
+        return ans
+
     def get_all_from_table(self, table: str,
                            column: str = "*"):
         cur = self.conn.cursor()

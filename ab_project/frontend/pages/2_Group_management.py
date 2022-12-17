@@ -36,6 +36,16 @@ def main():
         get_unit_group_id = lambda unit_group_number_: \
             unit_groups_df[unit_groups_df.group_number == unit_group_number_].unit_group_id.iat[0]
 
+    st.markdown("---")
+
+    st.subheader("Zmiana prowadzącego")
+    con_change_teacher = st.container()
+    with con_change_teacher:
+        st.info(f"""### Aktualny prowadzący grupy:
+        {st.session_state.db.get_unit_group_teacher(get_unit_group_id(unit_group_number))} 
+        """)
+        pass
+
 
 if __name__ == '__main__':
     st.set_page_config(
