@@ -111,6 +111,7 @@ END;
 $$;
 --4 Przenieść studenta do innej grupy
 CREATE OR REPLACE PROCEDURE przenies_studenta_do_innej_grupy_na_jedne_zajecia(student_id users.usos_id%TYPE,
+                                                                              obecna_grupa_id unit_groups.unit_group_id%TYPE,
                                                                               nowa_grupa_id unit_groups.unit_group_id%TYPE)
     LANGUAGE plpgsql
 AS
@@ -141,7 +142,8 @@ BEGIN
     THEN
         UPDATE users_groups
         SET group_id = nowa_grupa_id
-        WHERE user_usos_id = student_id;
+        WHERE user_usos_id = student_id
+          AND group_id = obecna_grupa_id;
     ELSE
         RAISE NOTICE 'Student nie moze zmienic grupy';
     END IF;
@@ -154,22 +156,70 @@ CREATE OR REPLACE PROCEDURE przenies_studenta_na_wszystkie_zajecia(id_studenta u
     LANGUAGE plpgsql
 AS
 $$
+DECLARE
+    x              record;
+    nie_ma_zajec   boolean = TRUE;
+    y              record;
+    id_nowej_grupy unit_groups.unit_group_id%TYPE;
 BEGIN
-    SELECT unit_groups.usos_unit_id
-FROM unit_groups
-         INNER JOIN users_groups ug ON unit_groups.unit_group_id = ug.group_id
-         INNER JOIN usos_units uu ON uu.usos_unit_id = unit_groups.usos_unit_id
-         INNER JOIN users u ON u.usos_id = ug.user_usos_id
-WHERE id_studenta = u.usos_id
-  AND uu.group_type=rodzaj_zajec;
-
-END
+    DROP TABLE IF EXISTS temp_przenosiny;
+    CREATE TEMP TABLE temp_przenosiny AS
+    SELECT unit_groups.usos_unit_id, unit_groups.group_number, unit_groups.unit_group_id
+    FROM unit_groups
+             INNER JOIN users_groups ug ON unit_groups.unit_group_id = ug.group_id
+             INNER JOIN usos_units uu ON uu.usos_unit_id = unit_groups.usos_unit_id
+             INNER JOIN users u ON u.usos_id = ug.user_usos_id
+    WHERE id_studenta = u.usos_id
+      AND uu.group_type = rodzaj_zajec;
+    FOR x IN SELECT * FROM temp_przenosiny
+        LOOP
+            FOR y IN SELECT a.start_time,
+                            a.end_time
+                     FROM activities a
+                              INNER JOIN unit_groups u ON u.unit_group_id = a.unit_group
+                     WHERE u.usos_unit_id = x.usos_unit_id
+                       AND u.group_number = nr_nowej_grupy
+                LOOP
+                    IF
+                            zajecia_studenta_w_danym_czasie(id_studenta, y.start_time, y.end_time, x.usos_unit_id) =
+                            FALSE
+                    THEN
+                        nie_ma_zajec = FALSE;
+                    END IF;
+                END LOOP;
+        END LOOP;
+    IF nie_ma_zajec
+    THEN
+        FOR x IN SELECT * FROM temp_przenosiny
+            LOOP
+                SELECT unit_group_id
+                INTO id_nowej_grupy
+                FROM unit_groups
+                WHERE usos_unit_id = x.usos_unit_id
+                  AND group_number = nr_nowej_grupy;
+                UPDATE users_groups
+                SET group_id = id_nowej_grupy
+                WHERE user_usos_id = id_studenta
+                  AND group_id = x.unit_group_id;
+            END LOOP;
+        RAISE NOTICE 'Nie zajec true';
+    ELSE
+        RAISE NOTICE 'False';
+    END IF;
+END;
 
 $$;
-SELECT unit_groups.usos_unit_id
+CALL przenies_studenta_na_wszystkie_zajecia(234394, 'LEK', 1);
+SELECT group_number
+FROM unit_groups
+         INNER JOIN users_groups ug ON unit_groups.unit_group_id = ug.group_id
+         INNER JOIN users u ON u.usos_id = ug.user_usos_id
+WHERE u.usos_id = 233921;
+
+SELECT unit_groups.usos_unit_id, group_number
 FROM unit_groups
          INNER JOIN users_groups ug ON unit_groups.unit_group_id = ug.group_id
          INNER JOIN usos_units uu ON uu.usos_unit_id = unit_groups.usos_unit_id
          INNER JOIN users u ON u.usos_id = ug.user_usos_id
 WHERE 233921 = u.usos_id
-  AND uu.group_type='WYK';
+  AND uu.group_type = 'WYK';
