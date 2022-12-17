@@ -32,7 +32,7 @@ def main():
         unit_groups_df = st.session_state.db.get_unit_groups(course_id=get_course_id(course_name),
                                                              usos_term_id=get_term_id(term_name),
                                                              group_type=get_group_type_id(group_type_name))
-        unit_group_number = st.sidebar.selectbox(label="Numer grupy", options=unit_groups_df.group_number)
+        unit_group_number = st.selectbox(label="Numer grupy", options=unit_groups_df.group_number)
         get_unit_group_id = lambda unit_group_number_: \
             unit_groups_df[unit_groups_df.group_number == unit_group_number_].unit_group_id.iat[0]
 

@@ -22,7 +22,6 @@ def main():
 
     group_types_df = st.session_state.db.get_group_types(course_id=get_course_id(course_name),
                                                          usos_term_id=get_term_id(term_name))
-    st.write(group_types_df)
     group_type_name = st.sidebar.selectbox(label="Typ zajęć", options=group_types_df.group_type_name)
     get_group_type_id = lambda group_type_name_: \
         group_types_df[group_types_df.group_type_name == group_type_name_].group_type_id.iat[0]
