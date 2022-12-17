@@ -1,8 +1,9 @@
 import streamlit as st
 
+from ab_project.frontend.USOS_Main import init_connection
 
 def main():
-    st.markdown("# Zarządzanie użytkownikiem")
+    st.markdown("# Zarządzanie studentem")
     st.sidebar.header("Filtry")
 
     programme_id = st.sidebar.selectbox(label="Kierunek studiów",
@@ -21,21 +22,24 @@ def main():
 
     group_types_df = st.session_state.db.get_group_types(course_id=get_course_id(course_name),
                                                          usos_term_id=get_term_id(term_name))
-    group_type_name = st.selectbox(label="Typ zajęć", options=group_types_df.group_type_name)
+    st.write(group_types_df)
+    group_type_name = st.sidebar.selectbox(label="Typ zajęć", options=group_types_df.group_type_name)
     get_group_type_id = lambda group_type_name_: \
         group_types_df[group_types_df.group_type_name == group_type_name_].group_type_id.iat[0]
 
     unit_groups_df = st.session_state.db.get_unit_groups(course_id=get_course_id(course_name),
                                                          usos_term_id=get_term_id(term_name),
                                                          group_type=get_group_type_id(group_type_name))
-    unit_group_number = st.selectbox(label="Numer grupy", options=unit_groups_df.group_number)
+    unit_group_number = st.sidebar.selectbox(label="Numer grupy", options=unit_groups_df.group_number)
     get_unit_group_id = lambda unit_group_number_: \
-        unit_groups_df[unit_groups_df.group_number == unit_group_number_].unig_group_id.iag[0]
+        unit_groups_df[unit_groups_df.group_number == unit_group_number_].unit_group_id.iat[0]
 
-    users_df = st.session_state.db.get_users(unit_group_id=get_unit_group_id(unit_group_number))
-    user = st.selectbox(label="Numer grupy", options=users_df)
-    # get_unit_group_id = lambda unit_group_number_: \
-    #     unit_groups_df[unit_groups_df.group_number == unit_group_number_].unig_group_id.iag[0]
+    users_df = st.session_state.db.get_users(unit_group_id=int(get_unit_group_id(unit_group_number)))
+    users_df.loc[:, "unique_readable_user_id"] = users_df.apply(lambda row: f"{row.first_name} {row.last_name} [{row.usos_id}]", axis=1)
+    users_df.sort_values("unique_readable_user_id", inplace=True)
+    unique_readable_user_id = st.selectbox(label="Student", options=users_df.unique_readable_user_id)
+    get_user_usos_id = lambda unique_readable_user_id_:\
+        users_df[users_df.unique_readable_user_id == unique_readable_user_id_].usos_id.iag[0]
 
 
 if __name__ == '__main__':

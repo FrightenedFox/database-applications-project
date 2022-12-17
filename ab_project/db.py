@@ -331,7 +331,7 @@ class UsosDB:
         return df
 
     def get_group_types(self, usos_term_id: str, course_id: str):
-        query = ("SELECT grt.group_type_id "
+        query = ("SELECT grt.group_type_id, grt.group_type_name "
                  "FROM public.group_types grt "
                  "INNER JOIN usos_units uu ON grt.group_type_id = uu.group_type "
                  "INNER JOIN courses c ON c.course_id = uu.course "
