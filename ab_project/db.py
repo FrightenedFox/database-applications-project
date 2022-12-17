@@ -401,15 +401,23 @@ class UsosDB:
         logging.debug(f"Pandas get {column} from {table}.")
         return df
 
-    def get_all_unit_groups(self):
+    def run_function(self, function_name: str, params: list | None = None):
         cur = self.conn.cursor()
-        query = ("SELECT (unit_group_id, usos_unit_id, group_number) "
-                 "FROM unit_groups;")
-        cur.execute(query)
-        ans = cur.fetchall()
+        cur.callproc(function_name, params)
+        self.conn.commit()
+        ans = cur.ferchall()
         cur.close()
-        logging.debug(f"Get all groups from unit_groups table")
-        return [row[0][1:-1].split(",") for row in ans]
+        logging.debug(f"Call function '{function_name}' with the following params: {params}.")
+        return ans
+
+    def call_procedure(self, procedure_name_with_s_placeholders: str, params: list | None = None):
+        cur = self.conn.cursor()
+        cur.execute(f"CALL {procedure_name_with_s_placeholders};", params)
+        ans = cur.fetchone()
+        self.conn.commit()
+        cur.close()
+        logging.debug(f"Call procedure '{procedure_name_with_s_placeholders}' with the following params: {params}.")
+        return ans
 
     def upsert_returning(
             self,
@@ -454,20 +462,6 @@ class UsosDB:
         ans = cur.fetchall()
         cur.close()
         return ans
-
-    def get_all_user_courses(self, tg_user_id):
-        query = (f"SELECT DISTINCT c.course_id, c.course_name "
-                 f"FROM users_groups "
-                 f"JOIN unit_groups ug  ON "
-                 f"  users_groups.group_id = ug.unit_group_id "
-                 f"JOIN usos_units uu   ON ug.usos_unit_id = uu.usos_unit_id "
-                 f"JOIN courses c       ON uu.course = c.course_id "
-                 f"WHERE users_groups.user_usos_id = %(tg_user_id)s;")
-        df = pd.read_sql(query, self.sqlalchemy_engine,
-                         params={"tg_user_id": tg_user_id})
-        df.columns = ["course_id", "course_name"]
-        logging.debug(f"{tg_user_id=}")
-        return df
 
     def get_specific_value(self, where, where_value, col_name, table="users"):
         """Retrieves a specific value from a specific row."""

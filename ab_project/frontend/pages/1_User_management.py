@@ -31,11 +31,11 @@ def main():
                                                          group_type=get_group_type_id(group_type_name))
     unit_group_number = st.sidebar.selectbox(label="Numer grupy", options=unit_groups_df.group_number)
     get_unit_group_id = lambda unit_group_number_: \
-        unit_groups_df[unit_groups_df.group_number == unit_group_number_].unit_group_id.iat[0]
+        int(unit_groups_df[unit_groups_df.group_number == unit_group_number_].unit_group_id.iat[0])
 
-    users_df = st.session_state.db.get_users(unit_group_id=int(get_unit_group_id(unit_group_number)))
+    users_df = st.session_state.db.get_users(unit_group_id=get_unit_group_id(unit_group_number))
     users_df.loc[:, "unique_readable_user_id"] = users_df.apply(lambda row: f"{row.first_name} {row.last_name} [{row.usos_id}]", axis=1)
-    users_df.sort_values("unique_readable_user_id", inplace=True)
+    users_df = users_df.sort_values(["last_name", "first_name", "usos_id"]).reset_index(drop=True)
     unique_readable_user_id = st.selectbox(label="Student", options=users_df.unique_readable_user_id)
     get_user_usos_id = lambda unique_readable_user_id_:\
         users_df[users_df.unique_readable_user_id == unique_readable_user_id_].usos_id.iag[0]
