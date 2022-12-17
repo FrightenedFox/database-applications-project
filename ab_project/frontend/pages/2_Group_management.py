@@ -19,6 +19,7 @@ def main():
     courses_df = st.session_state.db.get_courses(programme_id=programme_id, usos_term_id=get_term_id(term_name))
     course_name = st.sidebar.selectbox(label="Przedmiot", options=courses_df.course_name)
     get_course_id = lambda course_name_: courses_df[courses_df.course_name == course_name_].course_id.iat[0]
+    # NOTE: sort courses
 
     col1_group_type, col2_group_number = st.columns(2)
     with col1_group_type:
@@ -33,17 +34,48 @@ def main():
                                                              usos_term_id=get_term_id(term_name),
                                                              group_type=get_group_type_id(group_type_name))
         unit_group_number = st.selectbox(label="Numer grupy", options=unit_groups_df.group_number)
-        get_unit_group_id = lambda unit_group_number_: \
-            unit_groups_df[unit_groups_df.group_number == unit_group_number_].unit_group_id.iat[0]
+        get_unit_group_id = lambda: \
+            int(unit_groups_df[unit_groups_df.group_number == unit_group_number].unit_group_id.iat[0])
+        unit_group_id = int(unit_groups_df[unit_groups_df.group_number == unit_group_number].unit_group_id.iat[0])
+        # NOTE: można nie używać lambdy
 
     st.markdown("---")
 
     st.subheader("Zmiana prowadzącego")
     con_change_teacher = st.container()
     with con_change_teacher:
-        st.info(f"""### Aktualny prowadzący grupy:
-        {st.session_state.db.get_unit_group_teacher(get_unit_group_id(unit_group_number))} 
+        current_group_teacher = st.session_state.db.get_unit_group_teacher(unit_group_id)
+        current_teacher_info = st.info(f"""
+        Aktualny prowadzący grupy:\t **{current_group_teacher[1]} {current_group_teacher[2]}**
         """)
+        teachers_df = st.session_state.db.pandas_get_all_from_table(table="teachers")
+        teachers_df.loc[:, "unique_readable_teacher_id"] = teachers_df.apply(lambda row: f"{row.first_name} {row.last_name} [{row.teacher_usos_id}]", axis=1)
+        teachers_df = teachers_df.sort_values(["last_name", "first_name", "teacher_usos_id"]).reset_index(drop=True)
+        new_group_teacher_readable_name = st.selectbox(label="Nowy prowadzący:",
+        options=teachers_df.unique_readable_teacher_id,
+        )
+        new_group_teacher_id = int(teachers_df[teachers_df.unique_readable_teacher_id == new_group_teacher_readable_name].teacher_usos_id.iat[0])
+
+        if st.button("Zmień prowadzącego"):
+            teacher_change_answer = st.session_state.db.call_procedure(
+                procedure_name_with_s_placeholders="zmien_prowadzacego(%s, %s, '???', TRUE)",
+                params=[unit_group_id, new_group_teacher_id]
+            )
+            current_group_teacher = st.session_state.db.get_unit_group_teacher(unit_group_id)
+            current_teacher_info.info(f"""
+            Aktualny prowadzący grupy:\t **{current_group_teacher[1]} {current_group_teacher[2]}**
+            """)
+            if teacher_change_answer[1]:
+                st.success(teacher_change_answer[0])
+            else:
+                st.error(teacher_change_answer[0])
+
+    st.markdown("---")
+
+    st.subheader("Dodanie nowe zajęcie")
+    add_new_activity = st.container()
+    with add_new_activity:
+        rooms_df = st.session_state.db.pandas_get_all_from_table(table="rooms").sort_values(["room_id"]).reset_index(drop=True)
         pass
 
 
