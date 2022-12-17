@@ -2,6 +2,7 @@ import streamlit as st
 
 from ab_project.frontend.USOS_Main import init_connection
 
+
 def main():
     st.markdown("# Zarządzanie studentem")
     st.sidebar.header("Filtry")
@@ -34,10 +35,11 @@ def main():
         int(unit_groups_df[unit_groups_df.group_number == unit_group_number_].unit_group_id.iat[0])
 
     users_df = st.session_state.db.get_users(unit_group_id=get_unit_group_id(unit_group_number))
-    users_df.loc[:, "unique_readable_user_id"] = users_df.apply(lambda row: f"{row.first_name} {row.last_name} [{row.usos_id}]", axis=1)
+    users_df.loc[:, "unique_readable_user_id"] = users_df.apply(
+        lambda row: f"{row.first_name} {row.last_name} [{row.usos_id}]", axis=1)
     users_df = users_df.sort_values(["last_name", "first_name", "usos_id"]).reset_index(drop=True)
     unique_readable_user_id = st.selectbox(label="Student", options=users_df.unique_readable_user_id)
-    get_user_usos_id = lambda unique_readable_user_id_:\
+    get_user_usos_id = lambda unique_readable_user_id_: \
         users_df[users_df.unique_readable_user_id == unique_readable_user_id_].usos_id.iag[0]
 
 

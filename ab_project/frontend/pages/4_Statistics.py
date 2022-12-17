@@ -2,6 +2,7 @@ import streamlit as st
 
 from ab_project.frontend.USOS_Main import init_connection
 
+
 def main():
     st.markdown("# Statystyki")
 
