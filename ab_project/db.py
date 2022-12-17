@@ -72,50 +72,6 @@ class UsosDB:
         else:
             return True
 
-    def upsert_returning(
-            self,
-            table: str,
-            items: list[dict[str, Any]] | dict[str, Any],
-            update_columns: list[str] | str | None = None,
-            returning_columns: list[str] | str | None = None
-    ):
-        """Updates or inserts any table."""
-        if isinstance(items, dict):
-            items = [items]
-        if isinstance(update_columns, str):
-            update_columns = [update_columns]
-        if isinstance(returning_columns, str):
-            returning_columns = [returning_columns]
-
-        column_list = get_nice_string(list(items[0].keys()))
-
-        values_list = ""
-        for items_part in items:
-            values_list += "\n\t( %s )," % get_nice_string(list(items_part.values()))
-        values_list = values_list[-1]
-
-        if update_columns is not None:
-            upsert_query = "ON CONFLICT DO UPDATE SET"
-            for update_column in update_columns:
-                upsert_query += f"\n\t{update_column} = excluded.{update_column},"
-            upsert_query = upsert_query[:-1]
-        else:
-            upsert_query = ""
-
-        if returning_columns is not None:
-            return_query = "RETURNING %s" % get_nice_string(returning_columns)
-        else:
-            return_query = ""
-
-        query = (f"INSERT INTO {table} ({column_list}) VALUES {values_list} "
-                 f"{upsert_query} {return_query};")
-        logging.debug(query)
-        cur = self.conn.cursor()
-        cur.execute(query)
-        ans = cur.fetchall()
-        cur.close()
-        return ans
-
     def create_user(self, usos_id: int | str, first_name: str, last_name: str):
         """Creates new record in the `users` table."""
         cur = self.conn.cursor()
@@ -130,46 +86,6 @@ class UsosDB:
         self.conn.commit()
         cur.close()
         logging.debug(f"Add {usos_id=}, {first_name=}, {last_name=}")
-
-    def get_all_user_courses(self, tg_user_id):
-        query = (f"SELECT DISTINCT c.course_id, c.course_name "
-                 f"FROM users_groups "
-                 f"JOIN unit_groups ug  ON "
-                 f"  users_groups.group_id = ug.unit_group_id "
-                 f"JOIN usos_units uu   ON ug.usos_unit_id = uu.usos_unit_id "
-                 f"JOIN courses c       ON uu.course = c.course_id "
-                 f"WHERE users_groups.user_usos_id = %(tg_user_id)s;")
-        df = pd.read_sql(query, self.sqlalchemy_engine,
-                         params={"tg_user_id": tg_user_id})
-        df.columns = ["course_id", "course_name"]
-        logging.debug(f"{tg_user_id=}")
-        return df
-
-    def get_specific_value(self, where, where_value, col_name, table="users"):
-        """Retrieves a specific value from a specific row."""
-        cur = self.conn.cursor()
-        query = (f"SELECT {col_name} "
-                 f"FROM   {table} "
-                 f"WHERE  {where} = %s;")
-        cur.execute(query, (where_value,))
-        ans = cur.fetchone()
-        cur.close()
-        logging.debug(f"{query=}\t{where_value=}")
-        return ans
-
-    def update_specific_value(self, where, where_value,
-                              col_name, col_name_value,
-                              table="users"):
-        """Updates a specific value from a specific row."""
-        cur = self.conn.cursor()
-        query = (f"UPDATE    {table} "
-                 f"SET       {col_name} = %(col_name_value)s "
-                 f"WHERE     {where} = %(where_value)s; ")
-        cur.execute(query, {"col_name_value": col_name_value,
-                            "where_value": where_value, })
-        self.conn.commit()
-        cur.close()
-        logging.debug(f"{query=}\t{col_name_value=}, {where_value=}")
 
     def upsert_course(self, course_id, course_name, term_id):
         """Updates or inserts a course."""
@@ -370,16 +286,6 @@ class UsosDB:
         cur.close()
         logging.debug(f"{programme_id=}, {programme_name=}")
 
-    def get_all_unit_groups(self):
-        cur = self.conn.cursor()
-        query = ("SELECT (unit_group_id, usos_unit_id, group_number) "
-                 "FROM unit_groups;")
-        cur.execute(query)
-        ans = cur.fetchall()
-        cur.close()
-        logging.debug(f"Get all groups from unit_groups table")
-        return [row[0][1:-1].split(",") for row in ans]
-
     def get_unit_term_info(self, usos_term_id: str):
         cur = self.conn.cursor()
         query = ("SELECT terms.start_date, terms.end_date "
@@ -390,6 +296,100 @@ class UsosDB:
         cur.close()
         logging.debug(f"{usos_term_id=}, term timings: {ans}")
         return ans
+
+    def get_all_unit_groups(self):
+        cur = self.conn.cursor()
+        query = ("SELECT (unit_group_id, usos_unit_id, group_number) "
+                 "FROM unit_groups;")
+        cur.execute(query)
+        ans = cur.fetchall()
+        cur.close()
+        logging.debug(f"Get all groups from unit_groups table")
+        return [row[0][1:-1].split(",") for row in ans]
+
+    def upsert_returning(
+            self,
+            table: str,
+            items: list[dict[str, Any]] | dict[str, Any],
+            update_columns: list[str] | str | None = None,
+            returning_columns: list[str] | str | None = None
+    ):
+        """Updates or inserts any table."""
+        if isinstance(items, dict):
+            items = [items]
+        if isinstance(update_columns, str):
+            update_columns = [update_columns]
+        if isinstance(returning_columns, str):
+            returning_columns = [returning_columns]
+
+        column_list = get_nice_string(list(items[0].keys()))
+
+        values_list = ""
+        for items_part in items:
+            values_list += "\n\t( %s )," % get_nice_string(list(items_part.values()))
+        values_list = values_list[-1]
+
+        if update_columns is not None:
+            upsert_query = "ON CONFLICT DO UPDATE SET"
+            for update_column in update_columns:
+                upsert_query += f"\n\t{update_column} = excluded.{update_column},"
+            upsert_query = upsert_query[:-1]
+        else:
+            upsert_query = ""
+
+        if returning_columns is not None:
+            return_query = "RETURNING %s" % get_nice_string(returning_columns)
+        else:
+            return_query = ""
+
+        query = (f"INSERT INTO {table} ({column_list}) VALUES {values_list} "
+                 f"{upsert_query} {return_query};")
+        logging.debug(query)
+        cur = self.conn.cursor()
+        cur.execute(query)
+        ans = cur.fetchall()
+        cur.close()
+        return ans
+
+    def get_all_user_courses(self, tg_user_id):
+        query = (f"SELECT DISTINCT c.course_id, c.course_name "
+                 f"FROM users_groups "
+                 f"JOIN unit_groups ug  ON "
+                 f"  users_groups.group_id = ug.unit_group_id "
+                 f"JOIN usos_units uu   ON ug.usos_unit_id = uu.usos_unit_id "
+                 f"JOIN courses c       ON uu.course = c.course_id "
+                 f"WHERE users_groups.user_usos_id = %(tg_user_id)s;")
+        df = pd.read_sql(query, self.sqlalchemy_engine,
+                         params={"tg_user_id": tg_user_id})
+        df.columns = ["course_id", "course_name"]
+        logging.debug(f"{tg_user_id=}")
+        return df
+
+    def get_specific_value(self, where, where_value, col_name, table="users"):
+        """Retrieves a specific value from a specific row."""
+        cur = self.conn.cursor()
+        query = (f"SELECT {col_name} "
+                 f"FROM   {table} "
+                 f"WHERE  {where} = %s;")
+        cur.execute(query, (where_value,))
+        ans = cur.fetchone()
+        cur.close()
+        logging.debug(f"{query=}\t{where_value=}")
+        return ans
+
+    def update_specific_value(self, where, where_value,
+                              col_name, col_name_value,
+                              table="users"):
+        """Updates a specific value from a specific row."""
+        cur = self.conn.cursor()
+        query = (f"UPDATE    {table} "
+                 f"SET       {col_name} = %(col_name_value)s "
+                 f"WHERE     {where} = %(where_value)s; ")
+        cur.execute(query, {"col_name_value": col_name_value,
+                            "where_value": where_value, })
+        self.conn.commit()
+        cur.close()
+        logging.debug(f"{query=}\t{col_name_value=}, {where_value=}")
 
 
 if __name__ == "__main__":

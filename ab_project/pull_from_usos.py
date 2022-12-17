@@ -110,12 +110,12 @@ async def pull_data(db: UsosDB):
                                          key_column="usos_id",
                                          table="users"):
                         db.create_user(**student_info)
-                        db.insert_user_group(user_usos_id=student_info["usos_id"],
-                                             unit_group_id=unit_group_id)
-                        db.insert_user_programme(
-                            student_programmes[0]["programme"]["id"],
-                            user_id=student_info["usos_id"]
-                        )
+                    db.insert_user_group(user_usos_id=student_info["usos_id"],
+                                         unit_group_id=unit_group_id)
+                    db.insert_user_programme(
+                        student_programmes[0]["programme"]["id"],
+                        user_id=student_info["usos_id"]
+                    )
         for unit_id in unit_ids:
             courses_unit_response = usos_connection.get(
                 service="services/courses/unit",
