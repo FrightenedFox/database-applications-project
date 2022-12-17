@@ -5,19 +5,23 @@ CREATE OR REPLACE FUNCTION sprawdzanie_wolnego_miejsca(grupa_id unit_groups.unit
 AS
 $$
 DECLARE
-    ilosc_osob integer;
+    ilosc_osob   integer;
     rozmiar_sali integer;
 BEGIN
     SELECT MIN(capacity)
-    FROM rooms into rozmiar_sali
-             INNER JOIN activities a ON rooms.room_id = a.room
-             INNER JOIN unit_groups ug ON ug.unit_group_id = a.unit_group
-    WHERE unit_group_id = grupa_id;
+    FROM rooms
+    INTO rozmiar_sali INNER JOIN activities a
+    ON rooms.
+    room_id = a.room INNER JOIN unit_groups ug ON ug.
+    unit_group_id = a.unit_group
+                    WHERE unit_group_id = grupa_id;
 
     SELECT COUNT(user_usos_id)
-FROM users_groups into ilosc_osob
-         INNER JOIN unit_groups ug ON ug.unit_group_id = users_groups.group_id
-WHERE unit_group_id = grupa_id;
+    FROM users_groups
+    INTO ilosc_osob INNER JOIN unit_groups ug
+    ON ug.
+    unit_group_id = users_groups.group_id
+                    WHERE unit_group_id = grupa_id;
 
     IF ilosc_osob > rozmiar_sali
     THEN
@@ -208,4 +212,15 @@ BEGIN
     RETURN odleglosc;
 END;
 $$
-SELECT odleglosc_miedzy_budynkami('F', 'P')
+SELECT odleglosc_miedzy_budynkami('F', 'P');
+--9
+CREATE OR REPLACE FUNCTION przenies_studenta_do_innej_grupy(id_studenta users.usos_id%TYPE,
+                                                            id_nowej_grupy unit_groups.unit_group_id%TYPE)
+RETURNS boolean
+LANGUAGE plpgsql
+AS
+    $$
+    DECLARE
+        sala text;
+
+$$;
