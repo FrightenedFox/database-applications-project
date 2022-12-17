@@ -1,5 +1,5 @@
 import streamlit as st
-
+import datetime as dt
 from ab_project.frontend.USOS_Main import init_connection
 
 def main():
@@ -72,12 +72,39 @@ def main():
 
     st.markdown("---")
 
-    st.subheader("Dodanie nowe zajęcie")
+    st.subheader("Dodanie nowego zajęcia")
     add_new_activity = st.container()
     with add_new_activity:
-        rooms_df = st.session_state.db.pandas_get_all_from_table(table="rooms").sort_values(["room_id"]).reset_index(drop=True)
-        pass
+        rooms_df = st.session_state.db.pandas_get_all_from_table(table="rooms").sort_values(["building_id", "room_id"]).reset_index(drop=True)
+        new_activity_room_id = st.selectbox(label="Sala:", options=rooms_df.room_id)
+        col1_new_activity_date, col2_new_activity_start_time, col3_new_activity_end_time = st.columns(3)
+        with col1_new_activity_date:
+            new_activity_date = st.date_input(label="Data:",
+            min_value=terms_df[terms_df.usos_term_id == get_term_id(term_name)].start_date.iat[0],
+            max_value=terms_df[terms_df.usos_term_id == get_term_id(term_name)].end_date.iat[0])
+        with col2_new_activity_start_time:
+            new_activity_start_time = st.time_input(label="Czas rozpoczęcia zajęcia:")
+        with col3_new_activity_end_time:
+            new_activity_end_time = st.time_input(label="Czas zakończenia zajęcia:")
+        if st.button("Dodaj zajęcie") and new_activity_end_time > new_activity_start_time:
+            add_new_activity_answer = st.session_state.db.call_procedure(
+                procedure_name_with_s_placeholders="dodaj_nowe_zajecia(%s, %s, %s, %s, '???', TRUE)",
+                params=[
+                    unit_group_id,
+                    new_activity_room_id,
+                    dt.datetime.combine(new_activity_date, new_activity_start_time),
+                    dt.datetime.combine(new_activity_date, new_activity_end_time)
+                ]
+            )
+            if add_new_activity_answer[1]:
+                st.success(add_new_activity_answer[0])
+            else:
+                st.error(add_new_activity_answer[0])
+        elif new_activity_end_time <= new_activity_start_time:
+            st.error("Czas rozpoczęcia zajęć musi być większy lub równy czasu zakończenia zajęć")
+            # TODO: przenieść do procedury w SQL
 
+    st.markdown("---")
 
 if __name__ == '__main__':
     st.set_page_config(

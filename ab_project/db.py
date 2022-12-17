@@ -298,7 +298,7 @@ class UsosDB:
         return ans
 
     def get_terms(self, programme_id: str):
-        query = ("SELECT DISTINCT tr.usos_term_id, tr.term_name "
+        query = ("SELECT DISTINCT tr.usos_term_id, tr.term_name, tr.start_date, tr.end_date  "
                  "FROM public.terms tr "
                  "INNER JOIN courses c ON tr.usos_term_id = c.term_id "
                  "INNER JOIN usos_units uun ON c.course_id = uun.course "
