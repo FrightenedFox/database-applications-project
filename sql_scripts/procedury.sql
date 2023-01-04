@@ -80,7 +80,9 @@ CALL dodaj_nowe_zajecia(6, 8176, 'L-27.109', '2022-11-22 07:45:00.000000 +00:00'
 --3 Przeniesc zajecia w czasie
 CREATE OR REPLACE PROCEDURE przenieś_zajecia_w_czasie(id_zajec activities.activity_id%TYPE,
                                                       nowy_czas_rozpoczecia activities.start_time%TYPE,
-                                                      nowy_czas_zakonczenia activities.end_time%TYPE)
+                                                      nowy_czas_zakonczenia activities.end_time%TYPE,
+                                                      OUT result TEXT,
+                                                      OUT positive bool)
     LANGUAGE plpgsql
 AS
 $$
@@ -109,19 +111,22 @@ BEGIN
         SET start_time = nowy_czas_rozpoczecia,
             end_time   = nowy_czas_zakonczenia
         WHERE activity_id = id_zajec;
-        RAISE NOTICE 'Przeniesiono zajecia na inną godzinę.';
+        positive = TRUE;
+        result = 'Przeniesiono zajęcia na wskazany czas.';
+    ELSE
+        positive = FALSE;
     END IF;
     IF warunek1 = FALSE
     THEN
-        RAISE NOTICE 'Nie mozna przeniesc zajec, poniewaz w danym czasie grupa ma inne zajecia.';
+        result = 'Nie mozna przeniesc zajec, poniewaz w danym czasie grupa ma inne zajecia.';
     END IF;
     IF warunek2 = FALSE
     THEN
-        RAISE NOTICE 'Nie mozna przeniesc zajec, poniewaz w danym czasie wykładowca ma inne zajecia.';
+        result = 'Nie mozna przeniesc zajec, poniewaz w danym czasie wykładowca ma inne zajecia.';
     END IF;
     IF warunek3 = FALSE
     THEN
-        RAISE NOTICE 'Nie mozna przeniesc zajec, poniewaz w danym czasie sala jest zajeta.';
+        result = 'Nie mozna przeniesc zajec, poniewaz w danym czasie sala jest zajeta.';
     END IF;
 END;
 $$;

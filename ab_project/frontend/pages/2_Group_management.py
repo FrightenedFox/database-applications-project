@@ -173,23 +173,70 @@ def main():
     st.subheader("Manipulacje pojedynczym zajęciem")
     add_new_activity = st.container()
     with add_new_activity:
-        group_activities_df = st.session_state.db.get_unit_group_activities(
-            unit_group_id
-        )
+        group_activities_df = st.session_state.db.get_unit_group_activities(unit_group_id)
+        group_activities_df.loc[:, "human_readable_name"] = group_activities_df.apply(
+            lambda row: f"({row.activity_id}) {row.start_time} - {row.end_time}, {row.room}", axis=1)
         activity_filtr_dates = st.date_input(
             label="Filtruj zajęcia według daty:",
             min_value=term_start_date,
             max_value=term_end_date,
             value=(term_start_date, term_end_date),
         )
-        group_activities_df_filtered = group_activities_df[
-            np.logical_and(
-                group_activities_df.start_time
-                > pd.to_datetime(activity_filtr_dates[0], utc=True),
-                group_activities_df.end_time
-                < pd.to_datetime(activity_filtr_dates[1], utc=True),
+        if len(activity_filtr_dates) == 2:
+            group_activities_df_filtered = group_activities_df[
+                np.logical_and(
+                    group_activities_df.start_time
+                    >= pd.to_datetime(activity_filtr_dates[0], utc=True),
+                    group_activities_df.end_time
+                    <= pd.to_datetime(activity_filtr_dates[1], utc=True),
+                )
+            ]
+        else:
+            group_activities_df_filtered = group_activities_df[
+                group_activities_df.start_time == pd.to_datetime(activity_filtr_dates[0], utc=True)
+                ]
+        modify_activity_human_readable_name = st.selectbox(label="Zajęcie",
+                                                           options=group_activities_df_filtered.human_readable_name)
+        modify_activity = group_activities_df_filtered[
+            group_activities_df_filtered.human_readable_name == modify_activity_human_readable_name
+            ][0]
+        (
+            col1_activity_new_date,
+            col2_activity_new_start_time,
+            col3_activity_new_end_time,
+        ) = st.columns(3)
+        with col1_activity_new_date:
+            activity_new_date = st.date_input(
+                label="Nowa data zajęcia:",
+                min_value=term_start_date,
+                max_value=term_end_date,
+                value=modify_activity.start_time.dt.date
             )
-        ]
+        with col2_activity_new_start_time:
+            activity_new_start_time = st.time_input(label="Nowy czas rozpoczęcia zajęcia:",
+                                                    value=modify_activity.start_time.dt.time)
+        with col3_activity_new_end_time:
+            activity_new_end_time = st.time_input(label="Nowy czas zakończenia zajęcia:",
+                                                  value=modify_activity.end_time.dt.time)
+        if st.button("Zapisz zmiany"):
+            if activity_new_end_time <= activity_new_start_time:
+                st.error(
+                    "Czas rozpoczęcia zajęć musi być większy lub równy czasu zakończenia zajęć"
+                )
+                # TODO: przenieść do procedury w SQL
+            else:
+                change_activity_time_answer = st.session_state.db.call_procedure(
+                    procedure_name_with_s_placeholders="przenieś_zajecia_w_czasie(%s, %s, %s, '???', TRUE)",
+                    params=[
+                        modify_activity.activity_id,
+                        dt.datetime.combine(activity_new_date, activity_new_start_time),
+                        dt.datetime.combine(activity_new_date, activity_new_end_time),
+                    ],
+                )
+                if change_activity_time_answer[1]:
+                    st.success(change_activity_time_answer[0])
+                else:
+                    st.error(change_activity_time_answer[0])
 
 
 if __name__ == "__main__":
