@@ -175,7 +175,7 @@ def main():
     with add_new_activity:
         group_activities_df = st.session_state.db.get_unit_group_activities(unit_group_id)
         group_activities_df.loc[:, "human_readable_name"] = group_activities_df.apply(
-            lambda row: f"({row.activity_id}) {row.start_time} - {row.end_time}, {row.room}", axis=1)
+            lambda row: f"(ID {row.activity_id}) | {row.start_time} -- {row.end_time} | {row.room}", axis=1)
         activity_filtr_dates = st.date_input(
             label="Filtruj zajęcia według daty:",
             min_value=term_start_date,
@@ -199,48 +199,56 @@ def main():
             st.warning("Wybrana grupa nie ma zajęć z wybranego przedmiotu w wybranym odcinku czasowym.")
         else:
             modify_activity_human_readable_name = st.selectbox(label="Zajęcie",
-                                                           options=group_activities_df_filtered.human_readable_name)
+                                                               options=group_activities_df_filtered.human_readable_name)
             modify_activity = group_activities_df_filtered[
-                group_activities_df_filtered.human_readable_name == modify_activity_human_readable_name
-                ].iloc[0, :]
-            (
-                col1_activity_new_date,
-                col2_activity_new_start_time,
-                col3_activity_new_end_time,
-            ) = st.columns(3)
-            with col1_activity_new_date:
-                activity_new_date = st.date_input(
-                    label="Nowa data zajęcia:",
-                    min_value=term_start_date,
-                    max_value=term_end_date,
-                    value=modify_activity.start_time
-                )
-            with col2_activity_new_start_time:
-                activity_new_start_time = st.time_input(label="Nowy czas rozpoczęcia zajęcia:",
-                                                        value=modify_activity.start_time)
-            with col3_activity_new_end_time:
-                activity_new_end_time = st.time_input(label="Nowy czas zakończenia zajęcia:",
-                                                    value=modify_activity.end_time)
-            if st.button("Zapisz zmiany"):
-                if activity_new_end_time <= activity_new_start_time:
-                    st.error(
-                        "Czas rozpoczęcia zajęć musi być większy lub równy czasu zakończenia zajęć"
+                                  group_activities_df_filtered.human_readable_name == modify_activity_human_readable_name
+                                  ].iloc[0, :]
+
+            tab1_change_time, tab2_delete = st.tabs(["Zmień czas zajęć", "Usuń zajęcie"])
+            with tab1_change_time:
+                (
+                    col1_activity_new_date,
+                    col2_activity_new_start_time,
+                    col3_activity_new_end_time,
+                ) = st.columns(3)
+                with col1_activity_new_date:
+                    activity_new_date = st.date_input(
+                        label="Nowa data zajęcia:",
+                        min_value=term_start_date,
+                        max_value=term_end_date,
+                        value=modify_activity.start_time
                     )
-                    # TODO: przenieść do procedury w SQL
-                else:
-                    change_activity_time_answer = st.session_state.db.call_procedure(
-                        procedure_name_with_s_placeholders="przenieś_zajecia_w_czasie(%s, %s, %s, '???', TRUE)",
-                        params=[
-                            int(modify_activity.activity_id),
-                            dt.datetime.combine(activity_new_date, activity_new_start_time),
-                            dt.datetime.combine(activity_new_date, activity_new_end_time),
-                        ],
-                    )
-                    if change_activity_time_answer[1]:
-                        st.success(change_activity_time_answer[0])
+                with col2_activity_new_start_time:
+                    activity_new_start_time = st.time_input(label="Nowy czas rozpoczęcia zajęcia:",
+                                                            value=modify_activity.start_time)
+                with col3_activity_new_end_time:
+                    activity_new_end_time = st.time_input(label="Nowy czas zakończenia zajęcia:",
+                                                          value=modify_activity.end_time)
+                if st.button("Zapisz zmiany"):
+                    if activity_new_end_time <= activity_new_start_time:
+                        st.error(
+                            "Czas rozpoczęcia zajęć musi być większy lub równy czasu zakończenia zajęć"
+                        )
+                        # TODO: przenieść do procedury w SQL
                     else:
-                        st.error(change_activity_time_answer[0])
-                        # TODO: Nie mozna przeniesc zajec, poniewaz w danym czasie sala jest zajeta, gdy przenosimy zajęcia w to samo miejsce.
+                        change_activity_time_answer = st.session_state.db.call_procedure(
+                            procedure_name_with_s_placeholders="przenieś_zajecia_w_czasie(%s, %s, %s, '???', TRUE)",
+                            params=[
+                                int(modify_activity.activity_id),
+                                dt.datetime.combine(activity_new_date, activity_new_start_time),
+                                dt.datetime.combine(activity_new_date, activity_new_end_time),
+                            ],
+                        )
+                        if change_activity_time_answer[1]:
+                            st.success(change_activity_time_answer[0])
+                        else:
+                            st.error(change_activity_time_answer[0])
+                            # TODO: Nie mozna przeniesc zajec, poniewaz w danym czasie sala jest zajeta, gdy przenosimy zajęcia w to samo miejsce.
+
+            with tab2_delete:
+                if st.button("Usuń zajęcie"):
+                    st.session_state.db.delete_activity(int(modify_activity.activity_id))
+                    st.info("Zajęcie zostało usunięte. Żeby zobaczyć zmiany zaktualizuj stronę lub kliknij `R`.")
 
 
 if __name__ == "__main__":

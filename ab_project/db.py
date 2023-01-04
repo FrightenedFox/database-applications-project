@@ -471,11 +471,11 @@ class UsosDB:
     def get_unit_group_teacher(self, unit_group_id: int):
         cur = self.conn.cursor()
         query = (
-            f"SELECT t.teacher_usos_id, t.first_name, t.last_name "
-            f"FROM teachers t "
-            f"         INNER JOIN group_teacher gt ON t.teacher_usos_id = gt.teacher "
-            f"         INNER JOIN unit_groups ug ON gt.unit_group = ug.unit_group_id "
-            f"WHERE unit_group_id = %(unit_group_id)s;"
+            "SELECT t.teacher_usos_id, t.first_name, t.last_name "
+            "FROM teachers t "
+            "         INNER JOIN group_teacher gt ON t.teacher_usos_id = gt.teacher "
+            "         INNER JOIN unit_groups ug ON gt.unit_group = ug.unit_group_id "
+            "WHERE unit_group_id = %(unit_group_id)s;"
         )
         cur.execute(query, {"unit_group_id": unit_group_id})
         ans = cur.fetchone()
@@ -485,16 +485,28 @@ class UsosDB:
 
     def get_unit_group_activities(self, unit_group_id: int):
         query = (
-            f"SELECT * "
-            f"FROM activities a "
-            f"         INNER JOIN unit_groups ug ON a.unit_group = ug.unit_group_id "
-            f"WHERE ug.unit_group_id = %(unit_group_id)s;"
+            "SELECT * "
+            "FROM activities a "
+            "         INNER JOIN unit_groups ug ON a.unit_group = ug.unit_group_id "
+            "WHERE ug.unit_group_id = %(unit_group_id)s;"
         )
         df = pd.read_sql(
             query, self.sqlalchemy_engine, params={"unit_group_id": unit_group_id}
         )
         logging.debug(f"Get unit group activities {unit_group_id=}.")
         return df
+
+    def delete_activity(self, activity_id: int):
+        cur = self.conn.cursor()
+        query = (
+            "DELETE "
+            "FROM activities "
+            "WHERE activity_id = %(activity_id)s;"
+        )
+        cur.execute(query, {"activity_id": activity_id})
+        self.conn.commit()
+        cur.close()
+        logging.debug(f"Delete activity {activity_id=}.")
 
     def get_all_from_table(self, table: str, column: str = "*"):
         cur = self.conn.cursor()
