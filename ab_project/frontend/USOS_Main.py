@@ -13,8 +13,10 @@ def init_connection():
 
 
 def main():
-    st.markdown("# Main page 🎈")
-    st.sidebar.markdown("# Main page 🎈")
+    st.header("Mini USOS 🎈")
+
+    st.markdown("Projekt z przedmiotu Aplikacje bazodanowe.")
+    st.markdown("Autorzy: Norbert Cyran, Vitalii Morskyi.")
 
     st.subheader("Diagram relacyjnej bazy danych")
     st.image("database.png")
