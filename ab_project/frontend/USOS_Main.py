@@ -16,8 +16,11 @@ def main():
     st.markdown("# Main page 🎈")
     st.sidebar.markdown("# Main page 🎈")
 
-    st.image("../../2023-01-05 AB Project Diagram.png")
-    st.image("../../database.png")
+    st.subheader("Diagram relacyjnej bazy danych")
+    st.image("database.png")
+    st.markdown("---")
+    st.subheader("Schemat aplikacji bazodanowej")
+    st.image("2023-01-05 AB Project Diagram.png")
 
 
 if __name__ == '__main__':
