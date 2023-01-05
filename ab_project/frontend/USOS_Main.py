@@ -16,6 +16,9 @@ def main():
     st.markdown("# Main page 🎈")
     st.sidebar.markdown("# Main page 🎈")
 
+    st.image("../../2023-01-05 AB Project Diagram.png")
+    st.image("../../database.png")
+
 
 if __name__ == '__main__':
     st.set_page_config(
