@@ -560,6 +560,35 @@ class UsosDB:
         logging.debug(f"Get {column} from {table}.")
         return ans
 
+    def get_distances_between_buildings(self):
+        query = (
+            "SELECT b1.building_id build1, "
+            "    b2.building_id build2, "
+            "    odleglosc_miedzy_budynkami(b1.building_id, b2.building_id) distance "
+            "FROM buildings b1, "
+            "    buildings b2 "
+            "ORDER BY b1.building_id, b2.building_id;"
+        )
+        df = pd.read_sql(
+            query, self.sqlalchemy_engine
+        )
+        logging.debug(f"Get distances between buildings.")
+        return df
+
+    def get_teachers_working_hours(self):
+        query = (
+            # "SELECT first_name || ' ' || teachers.last_name teacher, "
+            "SELECT first_name || ' ' || LEFT(teachers.last_name, 1) || '.' teacher, "
+            "    ilosc_godzin_wykladowcy(teacher_usos_id) work_hours "
+            "FROM teachers "
+            "ORDER BY work_hours DESC;"
+        )
+        df = pd.read_sql(
+            query, self.sqlalchemy_engine
+        )
+        logging.debug(f"Get teachers' working hours.")
+        return df
+
     def pandas_get_all_from_table(self, table: str, column: str = "*"):
         query = f"SELECT {column} FROM {table};"
         df = pd.read_sql(query, self.sqlalchemy_engine)
