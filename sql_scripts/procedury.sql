@@ -133,7 +133,9 @@ $$;
 --4 Przenieść studenta do innej grupy
 CREATE OR REPLACE PROCEDURE przenies_studenta_do_innej_grupy_na_jedne_zajecia(student_id users.usos_id%TYPE,
                                                                               obecna_grupa_id unit_groups.unit_group_id%TYPE,
-                                                                              nowa_grupa_id unit_groups.unit_group_id%TYPE)
+                                                                              nowa_grupa_id unit_groups.unit_group_id%TYPE,
+                                                                              OUT result TEXT,
+                                                                              OUT positive bool)
     LANGUAGE plpgsql
 AS
 $$
@@ -148,13 +150,13 @@ BEGIN
              INNER JOIN activities a ON rooms.room_id = a.room
              INNER JOIN unit_groups ug ON ug.unit_group_id = a.unit_group
     WHERE unit_group_id = nowa_grupa_id;
-
+    --  TODO: sprawdzić czy w grupie jest wolne miejsce dla studenta.
     FOR x IN SELECT start_time, end_time
              FROM activities a
                       INNER JOIN unit_groups u ON u.unit_group_id = a.unit_group
              WHERE unit_group_id = nowa_grupa_id
         LOOP
-            IF zajecia_studenta_w_danym_czasie(student_id, x.start_time, x.end_time) = FALSE
+            IF zajecia_studenta_w_danym_czasie(student_id, x.start_time, x.end_time, obecna_grupa_id) = FALSE
             THEN
                 student_nie_ma_zajec = FALSE;
             END IF;
@@ -165,15 +167,20 @@ BEGIN
         SET group_id = nowa_grupa_id
         WHERE user_usos_id = student_id
           AND group_id = obecna_grupa_id;
+        result = 'Student został przepisany do innej grupy.';
+        positive = TRUE;
     ELSE
-        RAISE NOTICE 'Student nie moze zmienic grupy';
+        result = 'Student nie może zmienić grupy, ponieważ w wybranym czasie on ma inne zajęcia.';
+        positive = FALSE;
     END IF;
 END;
 $$;
 --5 Przenieś studenta do innej grupy na wszystkie zajecia
 CREATE OR REPLACE PROCEDURE przenies_studenta_na_wszystkie_zajecia(id_studenta users.usos_id%TYPE,
                                                                    rodzaj_zajec group_types.group_type_id%TYPE,
-                                                                   nr_nowej_grupy unit_groups.group_number%TYPE)
+                                                                   nr_nowej_grupy unit_groups.group_number%TYPE,
+                                                                   OUT result TEXT,
+                                                                   OUT positive bool)
     LANGUAGE plpgsql
 AS
 $$
@@ -209,6 +216,7 @@ BEGIN
                     END IF;
                 END LOOP;
         END LOOP;
+    --  TODO: sprawdzić czy w grupie jest wolne miejsce dla studenta.
     IF nie_ma_zajec
     THEN
         FOR x IN SELECT * FROM temp_przenosiny
@@ -223,14 +231,16 @@ BEGIN
                 WHERE user_usos_id = id_studenta
                   AND group_id = x.unit_group_id;
             END LOOP;
-        RAISE NOTICE 'Nie zajec true';
+        result = 'Student został przeniesiony do nowej grupy.';
+        positive = TRUE;
     ELSE
-        RAISE NOTICE 'False';
+        result = 'Student nie został przeniesiony do nowej grupy.';
+        positive = FALSE;
     END IF;
 END;
 
 $$;
-CALL przenies_studenta_na_wszystkie_zajecia(234394, 'LEK', 1);
+CALL przenies_studenta_na_wszystkie_zajecia(234394, 'LAB', 6, '???', TRUE);
 SELECT group_number
 FROM unit_groups
          INNER JOIN users_groups ug ON unit_groups.unit_group_id = ug.group_id

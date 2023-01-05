@@ -1,12 +1,12 @@
 -- 1
 CREATE OR REPLACE FUNCTION sprawdzanie_wolnego_miejsca(grupa_id unit_groups.unit_group_id%TYPE)
-    RETURNS boolean
+    RETURNS BOOLEAN
     LANGUAGE plpgsql
 AS
 $$
 DECLARE
-    ilosc_osob   integer;
-    rozmiar_sali integer;
+    ilosc_osob   INTEGER;
+    rozmiar_sali INTEGER;
 BEGIN
     SELECT MIN(capacity)
     FROM rooms
@@ -37,7 +37,7 @@ SELECT sprawdzanie_wolnego_miejsca(113);
 CREATE OR REPLACE FUNCTION zajecia_studenta_w_danym_czasie(student users.usos_id%TYPE,
                                                            czas_poczatkowy activities.start_time%TYPE,
                                                            czas_koncowy activities.end_time%TYPE,
-                                                           ignoruj_usos_unit_id usos_units.usos_unit_id%TYPE DEFAULT null)
+                                                           ignoruj_usos_unit_id usos_units.usos_unit_id%TYPE DEFAULT NULL)
     RETURNS bool
     LANGUAGE plpgsql
 AS
@@ -47,34 +47,36 @@ DECLARE
 BEGIN
     IF ignoruj_usos_unit_id IS NULL
     THEN
-    SELECT COUNT(activity_id)
-    INTO wynik
-    FROM activities act
-             INNER JOIN unit_groups ung ON act.unit_group = ung.unit_group_id
-             INNER JOIN users_groups usg ON ung.unit_group_id = usg.group_id
-             INNER JOIN users u ON u.usos_id = usg.user_usos_id
-    WHERE (start_time BETWEEN czas_poczatkowy AND czas_koncowy
-        OR end_time BETWEEN czas_poczatkowy AND czas_koncowy)
-      AND u.usos_id = student;
+        SELECT COUNT(activity_id)
+        INTO wynik
+        FROM activities act
+                 INNER JOIN unit_groups ung ON act.unit_group = ung.unit_group_id
+                 INNER JOIN users_groups usg ON ung.unit_group_id = usg.group_id
+                 INNER JOIN users u ON u.usos_id = usg.user_usos_id
+        WHERE (start_time > czas_poczatkowy AND start_time < czas_koncowy
+            OR end_time > czas_poczatkowy AND end_time < czas_koncowy)
+          AND u.usos_id = student;
     ELSE
         SELECT COUNT(activity_id)
-    INTO wynik
-    FROM activities act
-             INNER JOIN unit_groups ung ON act.unit_group = ung.unit_group_id
-             INNER JOIN users_groups usg ON ung.unit_group_id = usg.group_id
-             INNER JOIN users u ON u.usos_id = usg.user_usos_id
-    WHERE (start_time BETWEEN czas_poczatkowy AND czas_koncowy
-        OR end_time BETWEEN czas_poczatkowy AND czas_koncowy)
-      AND u.usos_id = student AND ung.usos_unit_id != ignoruj_usos_unit_id;
-        END IF;
+        INTO wynik
+        FROM activities act
+                 INNER JOIN unit_groups ung ON act.unit_group = ung.unit_group_id
+                 INNER JOIN users_groups usg ON ung.unit_group_id = usg.group_id
+                 INNER JOIN users u ON u.usos_id = usg.user_usos_id
+        WHERE (start_time > czas_poczatkowy AND start_time < czas_koncowy
+            OR end_time > czas_poczatkowy AND end_time < czas_koncowy)
+          AND u.usos_id = student
+          AND ung.usos_unit_id != ignoruj_usos_unit_id;
+    END IF;
     IF wynik > 0 THEN
+        RAISE NOTICE 'X: % % %', wynik, czas_poczatkowy, czas_koncowy;
         RETURN FALSE;
     ELSIF wynik = 0 THEN
         RETURN TRUE;
     END IF;
 END;
 $$
-SELECT zajecia_studenta_w_danym_czasie(234394, timestamp '2022-12-16 16:46:00', timestamp '2022-12-16 17:30:00')
+SELECT zajecia_studenta_w_danym_czasie(234394, TIMESTAMP '2022-12-16 16:46:00', TIMESTAMP '2022-12-16 17:30:00')
 --3
 CREATE OR REPLACE FUNCTION zajecia_wykladowcy_w_danym_czasie(wykladowca teachers.teacher_usos_id%TYPE,
                                                              czas_poczatkowy activities.start_time%TYPE,
@@ -92,8 +94,8 @@ BEGIN
              INNER JOIN unit_groups ug ON ug.unit_group_id = act.unit_group
              INNER JOIN group_teacher gt ON ug.unit_group_id = gt.unit_group
              INNER JOIN teachers t ON t.teacher_usos_id = gt.teacher
-    WHERE (start_time BETWEEN czas_poczatkowy AND czas_koncowy
-        OR end_time BETWEEN czas_poczatkowy AND czas_koncowy)
+    WHERE (start_time > czas_poczatkowy AND start_time < czas_koncowy
+        OR end_time > czas_poczatkowy AND end_time < czas_koncowy)
       AND t.teacher_usos_id = wykladowca;
     IF wynik > 0 THEN
         RETURN FALSE;
@@ -102,7 +104,7 @@ BEGIN
     END IF;
 END;
 $$
-SELECT zajecia_wykladowcy_w_danym_czasie(8640, timestamp '2022-12-16 09:25:00', timestamp '2022-12-16 10:00:00')
+SELECT zajecia_wykladowcy_w_danym_czasie(8640, TIMESTAMP '2022-12-16 09:25:00', TIMESTAMP '2022-12-16 10:00:00')
 --4
 CREATE OR REPLACE FUNCTION zajecia_grupy_w_danym_czasie(grupa unit_groups.unit_group_id%TYPE,
                                                         czas_poczatkowy activities.start_time%TYPE,
@@ -118,8 +120,8 @@ BEGIN
     INTO wynik
     FROM activities act
              INNER JOIN unit_groups ug ON ug.unit_group_id = act.unit_group
-    WHERE (start_time BETWEEN czas_poczatkowy AND czas_koncowy
-        OR end_time BETWEEN czas_poczatkowy AND czas_koncowy)
+    WHERE (start_time > czas_poczatkowy AND start_time < czas_koncowy
+        OR end_time > czas_poczatkowy AND end_time < czas_koncowy)
       AND ug.unit_group_id = grupa;
     IF wynik > 0 THEN
         RETURN FALSE;
@@ -128,7 +130,7 @@ BEGIN
     END IF;
 END;
 $$
-SELECT zajecia_grupy_w_danym_czasie(23, timestamp '2022-12-16 15:25:00', timestamp '2022-12-16 16:00:00')
+SELECT zajecia_grupy_w_danym_czasie(23, TIMESTAMP '2022-12-16 15:25:00', TIMESTAMP '2022-12-16 16:00:00')
 --5
 CREATE OR REPLACE FUNCTION wolna_sala(sala rooms.room_id%TYPE,
                                       czas_poczatkowy activities.start_time%TYPE,
@@ -144,8 +146,8 @@ BEGIN
     INTO wynik
     FROM activities act
              INNER JOIN rooms r ON r.room_id = act.room
-    WHERE (start_time BETWEEN czas_poczatkowy AND czas_koncowy
-        OR end_time BETWEEN czas_poczatkowy AND czas_koncowy)
+    WHERE (start_time > czas_poczatkowy AND start_time < czas_koncowy
+        OR end_time > czas_poczatkowy AND end_time < czas_koncowy)
       AND r.room_id = sala;
     IF wynik > 0 THEN
         RETURN FALSE;
@@ -154,7 +156,7 @@ BEGIN
     END IF;
 END;
 $$
-SELECT wolna_sala('P.15(P-2.401)', timestamp '2022-12-16 09:25:00', timestamp '2022-12-16 10:00:00')
+SELECT wolna_sala('P.15(P-2.401)', TIMESTAMP '2022-12-16 09:25:00', TIMESTAMP '2022-12-16 10:00:00')
 -- 6
 CREATE OR REPLACE FUNCTION ilosc_godzin_wykladowcy(wykladowca teachers.teacher_usos_id%TYPE) RETURNS FLOAT AS
 $$
@@ -227,14 +229,3 @@ BEGIN
 END;
 $$
 SELECT odleglosc_miedzy_budynkami('F', 'P');
---9
-CREATE OR REPLACE FUNCTION przenies_studenta_do_innej_grupy(id_studenta users.usos_id%TYPE,
-                                                            id_nowej_grupy unit_groups.unit_group_id%TYPE)
-RETURNS boolean
-LANGUAGE plpgsql
-AS
-    $$
-    DECLARE
-        sala text;
-
-$$;

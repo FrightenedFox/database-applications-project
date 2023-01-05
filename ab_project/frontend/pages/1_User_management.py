@@ -15,32 +15,103 @@ def main():
 
     terms_df = st.session_state.db.get_terms(programme_id=programme_id)
     term_name = st.sidebar.selectbox(label="Semestr", options=terms_df.term_name)
-    get_term_id = lambda term_name_: terms_df[terms_df.term_name == term_name_].usos_term_id.iat[0]
+    term_id = terms_df[terms_df.term_name == term_name].usos_term_id.iat[0]
 
-    courses_df = st.session_state.db.get_courses(programme_id=programme_id, usos_term_id=get_term_id(term_name))
-    course_name = st.sidebar.selectbox(label="Przedmiot", options=courses_df.course_name)
-    get_course_id = lambda course_name_: courses_df[courses_df.course_name == course_name_].course_id.iat[0]
-
-    group_types_df = st.session_state.db.get_group_types(course_id=get_course_id(course_name),
-                                                         usos_term_id=get_term_id(term_name))
-    group_type_name = st.sidebar.selectbox(label="Typ zajęć", options=group_types_df.group_type_name)
-    get_group_type_id = lambda group_type_name_: \
-        group_types_df[group_types_df.group_type_name == group_type_name_].group_type_id.iat[0]
-
-    unit_groups_df = st.session_state.db.get_unit_groups(course_id=get_course_id(course_name),
-                                                         usos_term_id=get_term_id(term_name),
-                                                         group_type=get_group_type_id(group_type_name))
-    unit_group_number = st.sidebar.selectbox(label="Numer grupy", options=unit_groups_df.group_number)
-    get_unit_group_id = lambda unit_group_number_: \
-        int(unit_groups_df[unit_groups_df.group_number == unit_group_number_].unit_group_id.iat[0])
-
-    users_df = st.session_state.db.get_users(unit_group_id=get_unit_group_id(unit_group_number))
+    users_df = st.session_state.db.get_users(usos_term_id=term_id, programme_id=programme_id)
     users_df.loc[:, "unique_readable_user_id"] = users_df.apply(
         lambda row: f"{row.first_name} {row.last_name} [{row.usos_id}]", axis=1)
-    users_df = users_df.sort_values(["last_name", "first_name", "usos_id"]).reset_index(drop=True)
     unique_readable_user_id = st.selectbox(label="Student", options=users_df.unique_readable_user_id)
-    get_user_usos_id = lambda unique_readable_user_id_: \
-        users_df[users_df.unique_readable_user_id == unique_readable_user_id_].usos_id.iag[0]
+    user_usos_id = int(users_df[users_df.unique_readable_user_id == unique_readable_user_id].usos_id.iat[0])
+
+    st.markdown("---")
+
+    st.subheader("Przepisanie studenta do innej grupy")
+    con_move_student = st.container()
+    with con_move_student:
+        tab1_one_subject, tab2_all_groups_of_type = st.tabs(["Dla jednego przedmiotu", "Dla typu grupy"])
+        with tab1_one_subject:
+
+            col1_group_selection, col2_group_selection = st.columns(2)
+            with col1_group_selection:
+                courses_df = st.session_state.db.get_courses(programme_id=programme_id, usos_term_id=term_id)
+                course_name = st.selectbox(label="Przedmiot", options=courses_df.course_name,
+                                           key="single_subject_course_name")
+                course_id = courses_df[courses_df.course_name == course_name].course_id.iat[0]
+
+            with col2_group_selection:
+                group_types_df = st.session_state.db.get_group_types(course_id=course_id,
+                                                                     usos_term_id=term_id)
+                group_type_name = st.selectbox(label="Typ zmienianej grupy", options=group_types_df.group_type_name,
+                                               key="single_subject_group_type")
+                group_type_id = group_types_df[group_types_df.group_type_name == group_type_name].group_type_id.iat[0]
+
+            unit_groups_df = st.session_state.db.get_unit_groups(course_id=course_id,
+                                                                 usos_term_id=term_id,
+                                                                 group_type=group_type_id)
+            user_unit_group = st.session_state.db.get_user_unit_group(
+                usos_unit_id=int(unit_groups_df.usos_unit_id.iat[0]), usos_user_id=user_usos_id)
+            if user_unit_group is not None:
+                old_unit_group_id, _, old_group_number = user_unit_group
+
+                with col1_group_selection:
+                    st.info(f"Aktualny numer grupy: **{old_group_number}**")
+
+                with col2_group_selection:
+                    unit_group_number = st.selectbox(label="Nowy numer grupy", options=unit_groups_df.group_number,
+                                                     key="single_subject_group_number")
+                    new_unit_group_id = int(
+                        unit_groups_df[unit_groups_df.group_number == unit_group_number].unit_group_id.iat[0])
+            else:
+                st.warning("Osoba nie jest przypisana do żadnej grupy dla wybranego przedmiotu.")
+
+            with col2_group_selection:
+                if st.button("Przepisz studenta do nowej grupy", key="single_subject_accept_button"):
+                    if old_unit_group_id != new_unit_group_id:
+                        change_single_subject_group_answer = st.session_state.db.call_procedure(
+                            procedure_name_with_s_placeholders="przenies_studenta_do_innej_grupy_na_jedne_zajecia(%s, %s, %s, '???', TRUE)",
+                            params=[
+                                user_usos_id,
+                                old_unit_group_id,
+                                new_unit_group_id,
+                            ],
+                        )
+                        if change_single_subject_group_answer[1]:
+                            tab1_one_subject.success(change_single_subject_group_answer[0])
+                        else:
+                            tab1_one_subject.error(change_single_subject_group_answer[0])
+                    else:
+                        # TODO: przenieść do procedury w SQL
+                        tab1_one_subject.warning(
+                            "Nowa grupa nie różni się od już istniejącej grupy. Nie wprowadzono zmian.")
+
+        with tab2_all_groups_of_type:
+            col1_group_type, col2_group_number = st.columns(2)
+            with col1_group_type:
+                all_group_types_df = st.session_state.db.pandas_get_all_from_table(table="group_types")
+                group_type_name = st.selectbox(label="Typ grupy:  ", options=all_group_types_df.group_type_name,
+                                               key="all_subjects_group_type")
+                group_type_id = \
+                    all_group_types_df[all_group_types_df.group_type_name == group_type_name].group_type_id.iat[0]
+
+            with col2_group_number:
+                group_numbers = st.session_state.db.get_group_numbers_for_group_type(
+                    group_type=group_type_id).group_number.values
+                new_group_number = int(
+                    st.selectbox(label="Nowy numer grupy", options=group_numbers, key="all_subjects_group_number"))
+
+            if st.button("Przepisz studenta do nowej grupy", key="all_subjects_accept_button"):
+                change_all_subjects_group_answer = st.session_state.db.call_procedure(
+                    procedure_name_with_s_placeholders="przenies_studenta_na_wszystkie_zajecia(%s, %s, %s, '???', TRUE)",
+                    params=[
+                        user_usos_id,
+                        group_type_id,
+                        new_group_number,
+                    ],
+                )
+                if change_all_subjects_group_answer[1]:
+                    st.success(change_all_subjects_group_answer[0])
+                else:
+                    st.error(change_all_subjects_group_answer[0])
 
 
 if __name__ == '__main__':

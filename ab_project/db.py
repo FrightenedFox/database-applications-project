@@ -401,7 +401,8 @@ class UsosDB:
             "INNER JOIN user_programme upr ON u.usos_id = upr.user_id "
             "INNER JOIN study_programmes sp ON sp.programme_id = upr.programme_id "
             "WHERE sp.programme_id = %(programme_id)s "
-            "  AND tr.usos_term_id = %(usos_term_id)s;"
+            "  AND tr.usos_term_id = %(usos_term_id)s "
+            "ORDER BY c.course_name;"
         )
         df = pd.read_sql(
             query,
@@ -431,7 +432,7 @@ class UsosDB:
 
     def get_unit_groups(self, usos_term_id: str, course_id: str, group_type: str):
         query = (
-            "SELECT ung.unit_group_id, ung.group_number "
+            "SELECT ung.unit_group_id, ung.group_number, ung.usos_unit_id "
             "FROM public.unit_groups ung "
             "INNER JOIN usos_units uu ON uu.usos_unit_id = ung.usos_unit_id "
             "INNER JOIN courses c ON c.course_id = uu.course "
@@ -454,18 +455,46 @@ class UsosDB:
         )
         return df
 
-    def get_users(self, unit_group_id: int):
+    def get_user_unit_group(self, usos_unit_id: int, usos_user_id: int):
+        cur = self.conn.cursor()
         query = (
-            "SELECT u.usos_id, u.first_name, u.last_name "
-            "FROM public.users u "
-            "         INNER JOIN users_groups ugr ON u.usos_id = ugr.user_usos_id "
-            "         INNER JOIN unit_groups ung ON ung.unit_group_id = ugr.group_id "
-            "WHERE ung.unit_group_id = %(unit_group_id)s;"
+            "SELECT ung.unit_group_id, ung.usos_unit_id, ung.group_number "
+            "FROM unit_groups ung "
+            "        INNER JOIN users_groups usg ON ung.unit_group_id = usg.group_id "
+            "WHERE usg.user_usos_id = %(usos_user_id)s "
+            "AND ung.usos_unit_id = %(usos_unit_id)s;"
+        )
+        cur.execute(query, {
+            "usos_user_id": usos_user_id,
+            "usos_unit_id": usos_unit_id
+        })
+        ans = cur.fetchone()
+        cur.close()
+        logging.debug(f"Get groups for {usos_user_id=} and {usos_unit_id=}.")
+        return ans
+
+    def get_users(self, usos_term_id: str, programme_id: str):
+        query = (
+            "SELECT DISTINCT u.usos_id, u.first_name, u.last_name "
+            "FROM users u "
+            "        INNER JOIN users_groups usg ON u.usos_id = usg.user_usos_id "
+            "        INNER JOIN unit_groups ung ON ung.unit_group_id = usg.group_id "
+            "        INNER JOIN usos_units uu ON uu.usos_unit_id = ung.usos_unit_id "
+            "        INNER JOIN courses c ON c.course_id = uu.course "
+            "        INNER JOIN terms t ON t.usos_term_id = c.term_id "
+            "        INNER JOIN user_programme up ON u.usos_id = up.user_id "
+            "        INNER JOIN study_programmes sp ON sp.programme_id = up.programme_id "
+            "WHERE t.usos_term_id = %(usos_term_id)s "
+            "AND sp.programme_id = %(programme_id)s "
+            "ORDER BY u.last_name, u.first_name, u.usos_id;"
         )
         df = pd.read_sql(
-            query, self.sqlalchemy_engine, params={"unit_group_id": unit_group_id}
+            query, self.sqlalchemy_engine, params={
+                "usos_term_id": usos_term_id,
+                "programme_id": programme_id,
+            }
         )
-        logging.debug(f"Get users for {unit_group_id=}.")
+        logging.debug(f"Get users for {programme_id=} {usos_term_id=}.")
         return df
 
     def get_unit_group_teacher(self, unit_group_id: int):
@@ -494,6 +523,20 @@ class UsosDB:
             query, self.sqlalchemy_engine, params={"unit_group_id": unit_group_id}
         )
         logging.debug(f"Get unit group activities {unit_group_id=}.")
+        return df
+
+    def get_group_numbers_for_group_type(self, group_type: str):
+        query = (
+            "SELECT DISTINCT ung.group_number "
+            "FROM unit_groups ung "
+            "INNER JOIN usos_units uu ON uu.usos_unit_id = ung.usos_unit_id "
+            "WHERE uu.group_type = %(group_type)s "
+            "ORDER BY ung.group_number;"
+        )
+        df = pd.read_sql(
+            query, self.sqlalchemy_engine, params={"group_type": group_type}
+        )
+        logging.debug(f"Get group numbers for {group_type=}.")
         return df
 
     def delete_activity(self, activity_id: int):
