@@ -53,8 +53,8 @@ BEGIN
                  INNER JOIN unit_groups ung ON act.unit_group = ung.unit_group_id
                  INNER JOIN users_groups usg ON ung.unit_group_id = usg.group_id
                  INNER JOIN users u ON u.usos_id = usg.user_usos_id
-        WHERE (start_time > czas_poczatkowy AND start_time < czas_koncowy
-            OR end_time > czas_poczatkowy AND end_time < czas_koncowy)
+        WHERE (start_time >= czas_poczatkowy AND start_time < czas_koncowy
+        OR end_time > czas_poczatkowy AND end_time <= czas_koncowy)
           AND u.usos_id = student;
     ELSE
         SELECT COUNT(activity_id)
@@ -63,8 +63,8 @@ BEGIN
                  INNER JOIN unit_groups ung ON act.unit_group = ung.unit_group_id
                  INNER JOIN users_groups usg ON ung.unit_group_id = usg.group_id
                  INNER JOIN users u ON u.usos_id = usg.user_usos_id
-        WHERE (start_time > czas_poczatkowy AND start_time < czas_koncowy
-            OR end_time > czas_poczatkowy AND end_time < czas_koncowy)
+        WHERE (start_time >= czas_poczatkowy AND start_time < czas_koncowy
+        OR end_time > czas_poczatkowy AND end_time <= czas_koncowy)
           AND u.usos_id = student
           AND ung.usos_unit_id != ignoruj_usos_unit_id;
     END IF;
@@ -94,8 +94,8 @@ BEGIN
              INNER JOIN unit_groups ug ON ug.unit_group_id = act.unit_group
              INNER JOIN group_teacher gt ON ug.unit_group_id = gt.unit_group
              INNER JOIN teachers t ON t.teacher_usos_id = gt.teacher
-    WHERE (start_time > czas_poczatkowy AND start_time < czas_koncowy
-        OR end_time > czas_poczatkowy AND end_time < czas_koncowy)
+    WHERE (start_time >= czas_poczatkowy AND start_time < czas_koncowy
+        OR end_time > czas_poczatkowy AND end_time <= czas_koncowy)
       AND t.teacher_usos_id = wykladowca;
     IF wynik > 0 THEN
         RETURN FALSE;
@@ -120,8 +120,8 @@ BEGIN
     INTO wynik
     FROM activities act
              INNER JOIN unit_groups ug ON ug.unit_group_id = act.unit_group
-    WHERE (start_time > czas_poczatkowy AND start_time < czas_koncowy
-        OR end_time > czas_poczatkowy AND end_time < czas_koncowy)
+    WHERE (start_time >= czas_poczatkowy AND start_time < czas_koncowy
+        OR end_time > czas_poczatkowy AND end_time <= czas_koncowy)
       AND ug.unit_group_id = grupa;
     IF wynik > 0 THEN
         RETURN FALSE;
@@ -146,8 +146,8 @@ BEGIN
     INTO wynik
     FROM activities act
              INNER JOIN rooms r ON r.room_id = act.room
-    WHERE (start_time > czas_poczatkowy AND start_time < czas_koncowy
-        OR end_time > czas_poczatkowy AND end_time < czas_koncowy)
+    WHERE (start_time >= czas_poczatkowy AND start_time < czas_koncowy
+        OR end_time > czas_poczatkowy AND end_time <= czas_koncowy)
       AND r.room_id = sala;
     IF wynik > 0 THEN
         RETURN FALSE;
