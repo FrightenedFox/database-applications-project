@@ -1,4 +1,5 @@
 -- 1
+-- TODO: dokończyć tę funkcję
 CREATE OR REPLACE FUNCTION sprawdzanie_wolnego_miejsca(grupa_id unit_groups.unit_group_id%TYPE)
     RETURNS BOOLEAN
     LANGUAGE plpgsql
@@ -54,7 +55,7 @@ BEGIN
                  INNER JOIN users_groups usg ON ung.unit_group_id = usg.group_id
                  INNER JOIN users u ON u.usos_id = usg.user_usos_id
         WHERE (start_time >= czas_poczatkowy AND start_time < czas_koncowy
-        OR end_time > czas_poczatkowy AND end_time <= czas_koncowy)
+            OR end_time > czas_poczatkowy AND end_time <= czas_koncowy)
           AND u.usos_id = student;
     ELSE
         SELECT COUNT(activity_id)
@@ -64,7 +65,7 @@ BEGIN
                  INNER JOIN users_groups usg ON ung.unit_group_id = usg.group_id
                  INNER JOIN users u ON u.usos_id = usg.user_usos_id
         WHERE (start_time >= czas_poczatkowy AND start_time < czas_koncowy
-        OR end_time > czas_poczatkowy AND end_time <= czas_koncowy)
+            OR end_time > czas_poczatkowy AND end_time <= czas_koncowy)
           AND u.usos_id = student
           AND ung.usos_unit_id != ignoruj_usos_unit_id;
     END IF;

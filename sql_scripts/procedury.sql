@@ -44,6 +44,7 @@ DECLARE
     warunek2      BOOLEAN;
     warunek3      BOOLEAN;
 BEGIN
+    -- TODO: dodać warunek, który sprawdza czy czas rozpoczęcia jest mniejszy (wcześniejszy) od czasu zakończenia.
     SELECT t.teacher_usos_id
     INTO wykladowca_id
     FROM teachers t
@@ -94,6 +95,7 @@ DECLARE
     warunek2      BOOLEAN;
     warunek3      BOOLEAN;
 BEGIN
+    -- TODO: dodać warunek, który sprawdza czy czas rozpoczęcia jest mniejszy (wcześniejszy) od czasu zakończenia.
     SELECT unit_group_id, gt.teacher, r.room_id
     INTO grupa_id, wykladowca_id, sala
     FROM unit_groups ug
@@ -101,6 +103,21 @@ BEGIN
              INNER JOIN group_teacher gt ON ug.unit_group_id = gt.unit_group
              INNER JOIN rooms r ON r.room_id = a.room
     WHERE activity_id = id_zajec;
+
+    -- TODO: w tej chwili procedura nie pozwala przenieść zajęcia na inny czas, jeżeli przenosimy ich w taki sposób,
+    --  że nakładają się "sami na siebie". Np jeżeli przenosimy zajęcia z godziny 10:30-12:00 na godzinę 11:00-12:30
+    --  (godziny nakładają się), to procedura widzi następną sytuację:
+    --      a) grupa ma zajęcia w tym czasie (ma, ale je przenosimy, więc już nie ma tych zajęć);
+    --      b) wykładowca ma zajęcia (analogicznie);
+    --      c) sala jest zajęta (analogicznie).
+    --  Trzeba to poprawić w taki sposób, żeby procedura nie brała pod uwagę tych zajęć, które przenosimy.
+    --  Sprytnie to z tobą rozwiązaliśmy w funkcji `zajecia_studenta_w_danym_czasie`: dodaliśmy tam parametr
+    --  `ignoruj_usos_unit_id` i funkcja nie bierze pod uwagę zajęcia studenta w tej grupie (usos_unit_id).
+    --  Proponuję analogicznie to rozwiązać w następnych funkcjach:
+    --      1) zajecia_grupy_w_danym_czasie
+    --      2) zajecia_wykladowcy_w_danym_czasie
+    --      3) wolna_sala
+    --  Na koniec trzeba będzie zmodyfikować wyłowanie poniższych warunków tak, aby uwzględniać ten numer grupy.
 
     warunek1 = zajecia_grupy_w_danym_czasie(grupa_id, nowy_czas_rozpoczecia, nowy_czas_zakonczenia);
     warunek2 = zajecia_wykladowcy_w_danym_czasie(wykladowca_id, nowy_czas_rozpoczecia, nowy_czas_zakonczenia);
@@ -144,13 +161,15 @@ DECLARE
     student_nie_ma_zajec bool = TRUE;
     x                    RECORD;
 BEGIN
+    -- TODO: dodać sprawdzenie czy nowa grupa nie jest taka sama jak obecna grupa.
     SELECT room_id
     INTO sala
     FROM rooms
              INNER JOIN activities a ON rooms.room_id = a.room
              INNER JOIN unit_groups ug ON ug.unit_group_id = a.unit_group
     WHERE unit_group_id = nowa_grupa_id;
-    --  TODO: sprawdzić czy w grupie jest wolne miejsce dla studenta.
+    --  TODO: sprawdzić czy w grupie jest wolne miejsce dla studenta (w tym celu stworzyć osobną funkcję, ponieważ
+    --   analogiczny warunek jest wykorzystywany w procedurze `przenies_studenta_na_wszystkie_zajecia`).
     FOR x IN SELECT start_time, end_time
              FROM activities a
                       INNER JOIN unit_groups u ON u.unit_group_id = a.unit_group
@@ -216,7 +235,8 @@ BEGIN
                     END IF;
                 END LOOP;
         END LOOP;
-    --  TODO: sprawdzić czy w grupie jest wolne miejsce dla studenta.
+    --  TODO: sprawdzić czy w grupie jest wolne miejsce dla studenta (w tym celu stworzyć osobną funkcję, ponieważ
+    --   analogiczny warunek jest wykorzystywany w procedurze `przenies_studenta_do_innej_grupy_na_jedne_zajecia`).
     IF nie_ma_zajec
     THEN
         FOR x IN SELECT * FROM temp_przenosiny
