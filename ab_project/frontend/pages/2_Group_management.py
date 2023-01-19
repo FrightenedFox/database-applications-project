@@ -107,7 +107,7 @@ def main():
 
         if st.button("Zmień prowadzącego"):
             teacher_change_answer = st.session_state.db.call_procedure(
-                procedure_name_with_s_placeholders="zmien_prowadzacego(%s, %s, '???', TRUE)",
+                procedure_name_with_s_placeholders="zmien_prowadzacego(%s, %s, '???')",
                 params=[unit_group_id, new_group_teacher_id],
             )
             current_group_teacher = st.session_state.db.get_unit_group_teacher(
@@ -119,7 +119,7 @@ def main():
             """
             )
             if teacher_change_answer[1]:
-                st.success(teacher_change_answer[0])
+                st.success(teacher_change_answer[0][0])
             else:
                 st.error(teacher_change_answer[0])
 
@@ -155,7 +155,7 @@ def main():
                 # TODO: przenieść do procedury w SQL
             else:
                 add_new_activity_answer = st.session_state.db.call_procedure(
-                    procedure_name_with_s_placeholders="dodaj_nowe_zajecia(%s, %s, %s, %s, '???', TRUE)",
+                    procedure_name_with_s_placeholders="dodaj_nowe_zajecia(%s, %s, %s, %s, '???')",
                     params=[
                         unit_group_id,
                         new_activity_room_id,
@@ -164,7 +164,7 @@ def main():
                     ],
                 )
                 if add_new_activity_answer[1]:
-                    st.success(add_new_activity_answer[0])
+                    st.success(add_new_activity_answer[0][0])
                 else:
                     st.error(add_new_activity_answer[0])
 
@@ -232,7 +232,7 @@ def main():
                         # TODO: przenieść do procedury w SQL
                     else:
                         change_activity_time_answer = st.session_state.db.call_procedure(
-                            procedure_name_with_s_placeholders="przenieś_zajecia_w_czasie(%s, %s, %s, '???', TRUE)",
+                            procedure_name_with_s_placeholders="przenieś_zajecia_w_czasie(%s, %s, %s, '???')",
                             params=[
                                 int(modify_activity.activity_id),
                                 dt.datetime.combine(activity_new_date, activity_new_start_time),
@@ -240,7 +240,7 @@ def main():
                             ],
                         )
                         if change_activity_time_answer[1]:
-                            st.success(change_activity_time_answer[0])
+                            st.success(change_activity_time_answer[0][0])
                         else:
                             st.error(change_activity_time_answer[0])
                             # TODO: Nie mozna przeniesc zajec, poniewaz w danym czasie sala jest zajeta, gdy przenosimy zajęcia w to samo miejsce.

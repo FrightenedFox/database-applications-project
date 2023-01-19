@@ -20,7 +20,8 @@ def main():
     users_df = st.session_state.db.get_users(usos_term_id=term_id, programme_id=programme_id)
     users_df.loc[:, "unique_readable_user_id"] = users_df.apply(
         lambda row: f"{row.first_name} {row.last_name} [{row.usos_id}]", axis=1)
-    unique_readable_user_id = st.selectbox(label="Student", options=users_df.unique_readable_user_id)
+    vitaliis_index = int(users_df[users_df.usos_id == 234394].index[0])
+    unique_readable_user_id = st.selectbox(label="Student", options=users_df.unique_readable_user_id, index=vitaliis_index)
     user_usos_id = int(users_df[users_df.unique_readable_user_id == unique_readable_user_id].usos_id.iat[0])
 
     st.markdown("---")
@@ -54,35 +55,36 @@ def main():
                 old_unit_group_id, _, old_group_number = user_unit_group
 
                 with col1_group_selection:
-                    st.info(f"Aktualny numer grupy: **{old_group_number}**")
+                    group_display = st.info(f"Aktualny numer grupy: **{old_group_number}**")
 
                 with col2_group_selection:
                     unit_group_number = st.selectbox(label="Nowy numer grupy", options=unit_groups_df.group_number,
                                                      key="single_subject_group_number")
                     new_unit_group_id = int(
                         unit_groups_df[unit_groups_df.group_number == unit_group_number].unit_group_id.iat[0])
+                        
+                with col1_group_selection:
+                    if st.button("Przepisz studenta do nowej grupy", key="single_subject_accept_button"):
+                        if old_unit_group_id != new_unit_group_id:
+                            change_single_subject_group_answer = st.session_state.db.call_procedure(
+                                procedure_name_with_s_placeholders="przenies_studenta_do_innej_grupy_na_jedne_zajecia(%s, %s, %s, '???')",
+                                params=[
+                                    user_usos_id,
+                                    old_unit_group_id,
+                                    new_unit_group_id,
+                                ],
+                            )
+                            if change_single_subject_group_answer[1]:
+                                tab1_one_subject.success(change_single_subject_group_answer[0][0])
+                                group_display.info(f"Aktualny numer grupy: **{unit_group_number}**")
+                            else:
+                                tab1_one_subject.error(change_single_subject_group_answer[0])
+                        else:
+                            tab1_one_subject.warning(
+                                "Nowa grupa nie różni się od już aktualnej grupy. Nie wprowadzono zmian.")
+
             else:
                 st.warning("Osoba nie jest przypisana do żadnej grupy dla wybranego przedmiotu.")
-
-            with col2_group_selection:
-                if st.button("Przepisz studenta do nowej grupy", key="single_subject_accept_button"):
-                    if old_unit_group_id != new_unit_group_id:
-                        change_single_subject_group_answer = st.session_state.db.call_procedure(
-                            procedure_name_with_s_placeholders="przenies_studenta_do_innej_grupy_na_jedne_zajecia(%s, %s, %s, '???', TRUE)",
-                            params=[
-                                user_usos_id,
-                                old_unit_group_id,
-                                new_unit_group_id,
-                            ],
-                        )
-                        if change_single_subject_group_answer[1]:
-                            tab1_one_subject.success(change_single_subject_group_answer[0])
-                        else:
-                            tab1_one_subject.error(change_single_subject_group_answer[0])
-                    else:
-                        # TODO: przenieść do procedury w SQL
-                        tab1_one_subject.warning(
-                            "Nowa grupa nie różni się od już istniejącej grupy. Nie wprowadzono zmian.")
 
         with tab2_all_groups_of_type:
             col1_group_type, col2_group_number = st.columns(2)
@@ -101,7 +103,7 @@ def main():
 
             if st.button("Przepisz studenta do nowej grupy", key="all_subjects_accept_button"):
                 change_all_subjects_group_answer = st.session_state.db.call_procedure(
-                    procedure_name_with_s_placeholders="przenies_studenta_na_wszystkie_zajecia(%s, %s, %s, '???', TRUE)",
+                    procedure_name_with_s_placeholders="przenies_studenta_na_wszystkie_zajecia(%s, %s, %s, '???')",
                     params=[
                         user_usos_id,
                         group_type_id,
@@ -109,7 +111,7 @@ def main():
                     ],
                 )
                 if change_all_subjects_group_answer[1]:
-                    st.success(change_all_subjects_group_answer[0])
+                    st.success(change_all_subjects_group_answer[0][0])
                 else:
                     st.error(change_all_subjects_group_answer[0])
 

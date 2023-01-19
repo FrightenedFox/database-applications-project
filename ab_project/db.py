@@ -3,6 +3,7 @@ from typing import Any
 
 import pandas as pd
 import psycopg2
+from psycopg2.errors import RaiseException
 import sqlalchemy
 
 from ab_project.config.config import app_config
@@ -610,14 +611,23 @@ class UsosDB:
             self, procedure_name_with_s_placeholders: str, params: list | None = None
     ):
         cur = self.conn.cursor()
-        cur.execute(f"CALL {procedure_name_with_s_placeholders};", params)
-        ans = cur.fetchone()
-        self.conn.commit()
-        cur.close()
         logging.debug(
             f"Call procedure '{procedure_name_with_s_placeholders}' with the following params: {params}."
         )
-        return ans
+        try: 
+            cur.execute(f"CALL {procedure_name_with_s_placeholders};", params)
+        except RaiseException as err:
+            self.conn.rollback() 
+            cur.close()
+            logging.debug(
+                f"User error in procedure: {err.diag.message_primary}."
+            )   
+            return err.diag.message_primary, False
+        else: 
+            ans = cur.fetchone()
+            self.conn.commit()
+            cur.close()
+            return ans, True
 
     def upsert_returning(
             self,
