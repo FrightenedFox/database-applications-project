@@ -1,7 +1,31 @@
+-- Back to the future: sprawdzenie czy czas a jest mniejszy od czasu b
+CREATE OR REPLACE PROCEDURE back_to_the_future(czas_a TIMESTAMP WITHOUT TIME ZONE, czas_b TIMESTAMP WITHOUT TIME ZONE)
+    LANGUAGE plpgsql AS
+$$
+BEGIN
+    IF czas_a > czas_b THEN
+        RAISE INVALID_PARAMETER_VALUE USING MESSAGE = 'Czas początkowy jest większy od czasu końcowego.';
+    END IF;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE back_to_the_future(czas_a TIMESTAMP WITH TIME ZONE, czas_b TIMESTAMP WITH TIME ZONE)
+    LANGUAGE plpgsql AS
+$$
+BEGIN
+    IF czas_a > czas_b THEN
+        RAISE INVALID_PARAMETER_VALUE USING MESSAGE = 'Czas początkowy jest większy od czasu końcowego.';
+    END IF;
+END;
+$$;
+
+
+
 --1 Zmiana prowadzacego
-CREATE OR REPLACE PROCEDURE zmien_prowadzacego(IN grupa_id unit_groups.unit_group_id%TYPE,
-                                               IN wykladowca_id group_teacher.teacher%TYPE,
-                                               OUT result TEXT)
+CREATE OR REPLACE PROCEDURE zmien_prowadzacego(
+    IN grupa_id unit_groups.unit_group_id%TYPE,
+    IN wykladowca_id group_teacher.teacher%TYPE,
+    OUT result TEXT)
     LANGUAGE plpgsql
 AS
 $$
@@ -25,6 +49,8 @@ BEGIN
 END
 $$;
 -- -- CALL zmien_prowadzacego(18, 27061);
+
+
 --2 Dodanie nowych zajec
 CREATE OR REPLACE PROCEDURE dodaj_nowe_zajecia(grupa_id unit_groups.unit_group_id%TYPE,
                                                sala rooms.room_id%TYPE,
@@ -40,7 +66,7 @@ DECLARE
     warunek2      BOOLEAN;
     warunek3      BOOLEAN;
 BEGIN
-    -- TODO: dodać warunek, który sprawdza czy czas rozpoczęcia jest mniejszy (wcześniejszy) od czasu zakończenia.
+    CALL back_to_the_future(czas_rozpoczecia, czas_zakonczenia);
     SELECT t.teacher_usos_id
     INTO wykladowca_id
     FROM teachers t
@@ -70,7 +96,11 @@ BEGIN
     END IF;
 END;
 $$;
--- -- CALL dodaj_nowe_zajecia(6, 8176, 'L-27.109', '2022-11-22 07:45:00.000000 +00:00', '2022-11-22 09:15:00.000000 +00:00');
+
+-- CALL dodaj_nowe_zajecia(62, 'L-27.110', timestamptz '2022-11-22 17:45:00.000000 +00:00',
+--                         timestamptz '2022-11-22 19:15:00.000000 +00:00', '');
+
+
 --3 Przeniesc zajecia w czasie
 CREATE OR REPLACE PROCEDURE przenieś_zajecia_w_czasie(id_zajec activities.activity_id%TYPE,
                                                       nowy_czas_rozpoczecia activities.start_time%TYPE,
@@ -87,7 +117,7 @@ DECLARE
     warunek2      BOOLEAN;
     warunek3      BOOLEAN;
 BEGIN
-    -- TODO: dodać warunek, który sprawdza czy czas rozpoczęcia jest mniejszy (wcześniejszy) od czasu zakończenia.
+    CALL back_to_the_future(nowy_czas_rozpoczecia, nowy_czas_zakonczenia);
     SELECT unit_group_id, gt.teacher, r.room_id
     INTO grupa_id, wykladowca_id, sala
     FROM unit_groups ug
@@ -136,6 +166,9 @@ BEGIN
     END IF;
 END;
 $$;
+
+
+
 --4 Przenieść studenta do innej grupy
 CREATE OR REPLACE PROCEDURE przenies_studenta_do_innej_grupy_na_jedne_zajecia(student_id users.usos_id%TYPE,
                                                                               obecna_grupa_id unit_groups.unit_group_id%TYPE,
@@ -149,36 +182,47 @@ DECLARE
     student_nie_ma_zajec bool = TRUE;
     x                    RECORD;
 BEGIN
-    SELECT room_id
-    INTO sala
-    FROM rooms
-             INNER JOIN activities a ON rooms.room_id = a.room
-             INNER JOIN unit_groups ug ON ug.unit_group_id = a.unit_group
-    WHERE unit_group_id = nowa_grupa_id;
-    --  TODO: sprawdzić czy w grupie jest wolne miejsce dla studenta (w tym celu stworzyć osobną funkcję, ponieważ
-    --   analogiczny warunek jest wykorzystywany w procedurze `przenies_studenta_na_wszystkie_zajecia`).
-    FOR x IN SELECT start_time, end_time
-             FROM activities a
-                      INNER JOIN unit_groups u ON u.unit_group_id = a.unit_group
-             WHERE unit_group_id = nowa_grupa_id
-        LOOP
-            IF zajecia_studenta_w_danym_czasie(student_id, x.start_time, x.end_time, obecna_grupa_id) = FALSE
-            THEN
-                student_nie_ma_zajec = FALSE;
-            END IF;
-        END LOOP;
-    IF student_nie_ma_zajec
-    THEN
-        UPDATE users_groups
-        SET group_id = nowa_grupa_id
-        WHERE user_usos_id = student_id
-          AND group_id = obecna_grupa_id;
-        result = 'Student został przepisany do innej grupy.';
+    IF grupa_ma_wolne_miejsca(nowa_grupa_id) THEN
+        SELECT room_id
+        INTO sala
+        FROM rooms
+                 INNER JOIN activities a ON rooms.room_id = a.room
+                 INNER JOIN unit_groups ug ON ug.unit_group_id = a.unit_group
+        WHERE unit_group_id = nowa_grupa_id;
+        FOR x IN SELECT start_time, end_time
+                 FROM activities a
+                          INNER JOIN unit_groups u ON u.unit_group_id = a.unit_group
+                 WHERE unit_group_id = nowa_grupa_id
+            LOOP
+                IF zajecia_studenta_w_danym_czasie(student_id, x.start_time, x.end_time, obecna_grupa_id) = FALSE
+                THEN
+                    student_nie_ma_zajec = FALSE;
+                END IF;
+            END LOOP;
+        IF student_nie_ma_zajec
+        THEN
+            UPDATE users_groups
+            SET group_id = nowa_grupa_id
+            WHERE user_usos_id = student_id
+              AND group_id = obecna_grupa_id;
+            result = 'Student został przepisany do innej grupy.';
+        ELSE
+            RAISE EXCEPTION 'Student nie może zmienić grupy, ponieważ w wybranym czasie on ma inne zajęcia.';
+        END IF;
     ELSE
-        RAISE EXCEPTION 'Student nie może zmienić grupy, ponieważ w wybranym czasie on ma inne zajęcia.';
+        RAISE EXCEPTION 'Student nie może być przypisany do wkazanej grupy, ponieważ niema w niej wolnych miejsc';
     END IF;
+EXCEPTION
+    WHEN DATA_EXCEPTION THEN
+        BEGIN
+            RAISE NOTICE 'Some assigned rooms to the group % are too small.', nowa_grupa_id;
+            RAISE EXCEPTION 'Student nie może być przypisany do wkazanej grupy, ponieważ niema w niej wolnych miejsc';
+        END;
 END;
 $$;
+
+
+
 --5 Przenieś studenta do innej grupy na wszystkie zajecia
 CREATE OR REPLACE PROCEDURE przenies_studenta_na_wszystkie_zajecia(id_studenta users.usos_id%TYPE,
                                                                    rodzaj_zajec group_types.group_type_id%TYPE,
@@ -249,24 +293,25 @@ END;
 
 $$;
 -- CALL przenies_studenta_na_wszystkie_zajecia(234394, 'LAB', 6, '???', TRUE);
-SELECT group_number
-FROM unit_groups
-         INNER JOIN users_groups ug ON unit_groups.unit_group_id = ug.group_id
-         INNER JOIN users u ON u.usos_id = ug.user_usos_id
-WHERE u.usos_id = 233921;
+-- SELECT group_number
+-- FROM unit_groups
+--          INNER JOIN users_groups ug ON unit_groups.unit_group_id = ug.group_id
+--          INNER JOIN users u ON u.usos_id = ug.user_usos_id
+-- WHERE u.usos_id = 233921;
+--
+-- SELECT unit_groups.usos_unit_id, group_number
+-- FROM unit_groups
+--          INNER JOIN users_groups ug ON unit_groups.unit_group_id = ug.group_id
+--          INNER JOIN usos_units uu ON uu.usos_unit_id = unit_groups.usos_unit_id
+--          INNER JOIN users u ON u.usos_id = ug.user_usos_id
+-- WHERE 233921 = u.usos_id
+--   AND uu.group_type = 'WYK';
 
-SELECT unit_groups.usos_unit_id, group_number
-FROM unit_groups
-         INNER JOIN users_groups ug ON unit_groups.unit_group_id = ug.group_id
-         INNER JOIN usos_units uu ON uu.usos_unit_id = unit_groups.usos_unit_id
-         INNER JOIN users u ON u.usos_id = ug.user_usos_id
-WHERE 233921 = u.usos_id
-  AND uu.group_type = 'WYK';
 
-
-SELECT PG_GET_SERIAL_SEQUENCE('teachers', 'teacher_usos_id');
-CREATE SEQUENCE IF NOT EXISTS teachers_custom_usos_id_seq
-    AS INTEGER INCREMENT BY 1 START WITH 1 OWNED BY public.teachers.teacher_usos_id;
+-- 6 Dodawanie nowego prowadzącego
+-- SELECT PG_GET_SERIAL_SEQUENCE('teachers', 'teacher_usos_id');
+-- CREATE SEQUENCE IF NOT EXISTS teachers_custom_usos_id_seq
+--     AS INTEGER INCREMENT BY 1 START WITH 1 OWNED BY public.teachers.teacher_usos_id;
 
 CREATE OR REPLACE PROCEDURE dodaj_nowego_prowadzacego(
     IN imie public.teachers.first_name%TYPE,
@@ -292,6 +337,9 @@ BEGIN
 END;
 $$;
 
+
+
+-- 7 Automatyczne dodawanie nowego budynku
 CREATE OR REPLACE PROCEDURE dodaj_nowy_budynek(
     IN id_budynku public.buildings.building_id%TYPE,
     IN nazwa_budynku public.buildings.building_name%TYPE,
@@ -333,9 +381,11 @@ $$;
 -- 50.665115, 22.036575
 -- 50.485998, 22.067751
 
-SELECT PG_GET_SERIAL_SEQUENCE('users', 'usos_id');
-CREATE SEQUENCE IF NOT EXISTS users_custom_usos_id_seq
-    AS INTEGER INCREMENT BY 1 START WITH 1 OWNED BY public.users.usos_id;
+
+-- 8 Automatyczne dodawanie nowego studenta
+-- SELECT PG_GET_SERIAL_SEQUENCE('users', 'usos_id');
+-- CREATE SEQUENCE IF NOT EXISTS users_custom_usos_id_seq
+--     AS INTEGER INCREMENT BY 1 START WITH 1 OWNED BY public.users.usos_id;
 
 CREATE OR REPLACE PROCEDURE auto_dodaj_studenta(
     IN imie public.users.first_name%TYPE,
@@ -406,31 +456,8 @@ BEGIN
             CLOSE cur_usos_units;
 
         END;
--- TODO: exceptions
         END CASE;
 END;
 $$;
 
-CALL auto_dodaj_studenta('Paul', 'Massaro', '');
-
-CREATE OR REPLACE FUNCTION test() RETURNS INTEGER[]
-    LANGUAGE plpgsql
-AS
-$$
-DECLARE
-    a INTEGER ARRAY;
-    b INTEGER;
-BEGIN
-    b = 2;
-    a = ARRAY [2, 3, 4];
-    a = '{12, 3, 4}';
-    SELECT INTO a ARRAY(SELECT usos_unit_id FROM unit_groups);
-    RETURN a;
-END;
-$$;
-
-SELECT test
-FROM test();
-
-DROP FUNCTION test;
-
+-- CALL auto_dodaj_studenta('Paul', 'Massaro', '');

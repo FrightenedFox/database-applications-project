@@ -1,40 +1,33 @@
 -- 1
--- TODO: dokończyć tę funkcję
-CREATE OR REPLACE FUNCTION sprawdzanie_wolnego_miejsca(grupa_id unit_groups.unit_group_id%TYPE)
+CREATE OR REPLACE FUNCTION grupa_ma_wolne_miejsca(id_grupy unit_groups.unit_group_id%TYPE)
     RETURNS BOOLEAN
     LANGUAGE plpgsql
 AS
 $$
 DECLARE
-    ilosc_osob   INTEGER;
-    rozmiar_sali INTEGER;
+    liczebnosc_grupy INTEGER;
+    min_rozmiar_sali public.rooms.capacity%TYPE;
 BEGIN
-    SELECT MIN(capacity)
-    FROM rooms
-    INTO rozmiar_sali INNER JOIN activities a
-    ON rooms.
-    room_id = a.room INNER JOIN unit_groups ug ON ug.
-    unit_group_id = a.unit_group
-                    WHERE unit_group_id = grupa_id;
+    liczebnosc_grupy = ilosc_studentow_w_grupie(id_grupy);
+    SELECT MIN(r.capacity)
+    INTO min_rozmiar_sali
+    FROM unit_groups ung
+             INNER JOIN activities a ON ung.unit_group_id = a.unit_group
+             INNER JOIN rooms r ON r.room_id = a.room
+    WHERE ung.unit_group_id = id_grupy;
 
-    SELECT COUNT(user_usos_id)
-    FROM users_groups
-    INTO ilosc_osob INNER JOIN unit_groups ug
-    ON ug.
-    unit_group_id = users_groups.group_id
-                    WHERE unit_group_id = grupa_id;
-
-    IF ilosc_osob > rozmiar_sali
-    THEN
-        RETURN FALSE;
-    ELSE
-        RETURN TRUE;
-
-    END IF;
+    CASE
+        WHEN min_rozmiar_sali < liczebnosc_grupy
+            THEN RAISE DATA_EXCEPTION USING MESSAGE = 'Grupa już nie mieści się w niektórych salach!';
+        WHEN min_rozmiar_sali = liczebnosc_grupy THEN RETURN FALSE;
+        ELSE RETURN TRUE;
+        END CASE;
 END
 $$;
-SELECT sprawdzanie_wolnego_miejsca(113);
---2
+-- SELECT grupa_ma_wolne_miejsca(18);
+
+
+-- 2
 CREATE OR REPLACE FUNCTION zajecia_studenta_w_danym_czasie(
     student users.usos_id%TYPE,
     czas_poczatkowy activities.start_time%TYPE,
@@ -63,7 +56,7 @@ BEGIN
         RETURN TRUE;
     END IF;
 END;
-$$
+$$;
 
 
 CREATE OR REPLACE FUNCTION zajecia_studenta_w_danym_czasie(
@@ -96,7 +89,7 @@ BEGIN
         RETURN TRUE;
     END IF;
 END;
-$$
+$$;
 
 -- Wykorzystanie listy
 CREATE OR REPLACE FUNCTION zajecia_studenta_w_danym_czasie(
@@ -129,10 +122,12 @@ BEGIN
         RETURN TRUE;
     END IF;
 END;
-$$
+$$;
 
-SELECT zajecia_studenta_w_danym_czasie(234394, TIMESTAMP '2022-12-16 16:46:00', TIMESTAMP '2022-12-16 17:30:00')
---3
+-- SELECT zajecia_studenta_w_danym_czasie(234394, TIMESTAMP '2022-12-16 16:46:00', TIMESTAMP '2022-12-16 17:30:00');
+
+
+-- 3
 CREATE OR REPLACE FUNCTION zajecia_wykladowcy_w_danym_czasie(wykladowca teachers.teacher_usos_id%TYPE,
                                                              czas_poczatkowy activities.start_time%TYPE,
                                                              czas_koncowy activities.end_time%TYPE)
@@ -158,8 +153,10 @@ BEGIN
         RETURN TRUE;
     END IF;
 END;
-$$
-SELECT zajecia_wykladowcy_w_danym_czasie(8640, TIMESTAMP '2022-12-16 09:25:00', TIMESTAMP '2022-12-16 10:00:00')
+$$;
+-- SELECT zajecia_wykladowcy_w_danym_czasie(8640, TIMESTAMP '2022-12-16 09:25:00', TIMESTAMP '2022-12-16 10:00:00');
+
+
 --4
 CREATE OR REPLACE FUNCTION zajecia_grupy_w_danym_czasie(grupa unit_groups.unit_group_id%TYPE,
                                                         czas_poczatkowy activities.start_time%TYPE,
@@ -184,8 +181,10 @@ BEGIN
         RETURN TRUE;
     END IF;
 END;
-$$
-SELECT zajecia_grupy_w_danym_czasie(23, TIMESTAMP '2022-12-16 15:25:00', TIMESTAMP '2022-12-16 16:00:00')
+$$;
+-- SELECT zajecia_grupy_w_danym_czasie(23, TIMESTAMP '2022-12-16 15:25:00', TIMESTAMP '2022-12-16 16:00:00');
+
+
 --5
 CREATE OR REPLACE FUNCTION wolna_sala(sala rooms.room_id%TYPE,
                                       czas_poczatkowy activities.start_time%TYPE,
@@ -210,15 +209,17 @@ BEGIN
         RETURN TRUE;
     END IF;
 END;
-$$
-SELECT wolna_sala('P.15(P-2.401)', TIMESTAMP '2022-12-16 09:25:00', TIMESTAMP '2022-12-16 10:00:00')
+$$;
+-- SELECT wolna_sala('P.15(P-2.401)', TIMESTAMP '2022-12-16 09:25:00', TIMESTAMP '2022-12-16 10:00:00');
+
+
 -- 6
-CREATE OR REPLACE FUNCTION ilosc_godzin_wykladowcy(wykladowca teachers.teacher_usos_id%TYPE) RETURNS FLOAT AS
+CREATE OR REPLACE FUNCTION ilosc_godzin_wykladowcy(wykladowca teachers.teacher_usos_id%TYPE) RETURNS DOUBLE PRECISION AS
 $$
 DECLARE
     zajecie     RECORD;
     grupa       INT;
-    laczny_czas FLOAT := 0.0;
+    laczny_czas DOUBLE PRECISION := 0.0;
 BEGIN
     FOR grupa IN SELECT unit_group FROM group_teacher WHERE teacher = wykladowca
         LOOP
@@ -231,14 +232,16 @@ BEGIN
     RETURN laczny_czas;
 END;
 $$ LANGUAGE plpgsql;
-SELECT ilosc_godzin_wykladowcy(186812);
+-- SELECT ilosc_godzin_wykladowcy(186812);
+
+
 --7
-CREATE OR REPLACE FUNCTION ilosc_godzin_studenta(student users.usos_id%TYPE) RETURNS FLOAT AS
+CREATE OR REPLACE FUNCTION ilosc_godzin_studenta(student users.usos_id%TYPE) RETURNS DOUBLE PRECISION AS
 $$
 DECLARE
     zajecie     RECORD;
     grupa       INT;
-    laczny_czas FLOAT := 0.0;
+    laczny_czas DOUBLE PRECISION := 0.0;
 BEGIN
     FOR grupa IN SELECT group_id FROM users_groups WHERE user_usos_id = student
         LOOP
@@ -251,7 +254,8 @@ BEGIN
     RETURN laczny_czas;
 END;
 $$ LANGUAGE plpgsql;
-SELECT ilosc_godzin_studenta(234394);
+-- SELECT ilosc_godzin_studenta(234394);
+
 
 -- 8
 CREATE OR REPLACE FUNCTION odleglosc_miedzy_budynkami(budynek_a_id buildings.building_id%TYPE,
@@ -281,26 +285,27 @@ BEGIN
     RETURN odleglosc;
 END;
 $$;
-SELECT odleglosc_miedzy_budynkami('F', 'P');
+-- SELECT odleglosc_miedzy_budynkami('F', 'P');
 
 
 -- 9
-create or replace function ilosc_studentow_w_grupie(IN id_grupy public.unit_groups.unit_group_id%TYPE)
-    returns integer
-    language plpgsql
-as
+CREATE OR REPLACE FUNCTION ilosc_studentow_w_grupie(IN id_grupy public.unit_groups.unit_group_id%TYPE)
+    RETURNS INTEGER
+    LANGUAGE plpgsql
+AS
 $$
-declare
+DECLARE
     liczebnosc_grupy INTEGER;
-begin
-    select count(distinct usg.user_usos_id)
-    into liczebnosc_grupy
-    from public.unit_groups ung
-    inner join users_groups usg on ung.unit_group_id = usg.group_id
-    where ung.unit_group_id = id_grupy;
-    return liczebnosc_grupy;
-end;
+BEGIN
+    SELECT COUNT(DISTINCT usg.user_usos_id)
+    INTO liczebnosc_grupy
+    FROM public.unit_groups ung
+             INNER JOIN users_groups usg ON ung.unit_group_id = usg.group_id
+    WHERE ung.unit_group_id = id_grupy;
+    RETURN liczebnosc_grupy;
+END;
 $$;
+
 
 
 -- 10
@@ -309,19 +314,19 @@ returns double precision
 language plpgsql
 as
 $$
-    declare
-        najmniej_liczebna_grupa record;
-    begin
-        select ung.group_number numer_grupy, avg(ilosc_studentow_w_grupie(ung.unit_group_id)) srednia_ilosc_studentow
-        into najmniej_liczebna_grupa
-        from unit_groups ung
-        inner join usos_units uu on uu.usos_unit_id = ung.usos_unit_id
-        where uu.group_type = typ_grupy
-        group by ung.group_number
-        order by srednia_ilosc_studentow, numer_grupy
-        limit 1;
-        return najmniej_liczebna_grupa.numer_grupy;
-    end;
+DECLARE
+    najmniej_liczebna_grupa RECORD;
+BEGIN
+    SELECT ung.group_number numer_grupy, AVG(ilosc_studentow_w_grupie(ung.unit_group_id)) srednia_ilosc_studentow
+    INTO najmniej_liczebna_grupa
+    FROM unit_groups ung
+             INNER JOIN usos_units uu ON uu.usos_unit_id = ung.usos_unit_id
+    WHERE uu.group_type = typ_grupy
+    GROUP BY ung.group_number
+    ORDER BY srednia_ilosc_studentow, numer_grupy
+    LIMIT 1;
+    RETURN najmniej_liczebna_grupa.numer_grupy;
+END;
 $$;
 
-select grupa_z_min_iloscia_studentow('LAB');
+-- SELECT grupa_z_min_iloscia_studentow('LAB');
