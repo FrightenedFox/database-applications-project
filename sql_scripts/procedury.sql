@@ -1,8 +1,7 @@
 --1 Zmiana prowadzacego
 CREATE OR REPLACE PROCEDURE zmien_prowadzacego(IN grupa_id unit_groups.unit_group_id%TYPE,
                                                IN wykladowca_id group_teacher.teacher%TYPE,
-                                               OUT result TEXT,
-                                               OUT positive bool)
+                                               OUT result TEXT)
     LANGUAGE plpgsql
 AS
 $$
@@ -19,22 +18,19 @@ BEGIN
         UPDATE group_teacher
         SET teacher = wykladowca_id
         WHERE unit_group = grupa_id;
-        result = 'Wykladowca zostal zmieniony';
-        positive = TRUE;
+        result = 'Wykładowca został zmieniony.';
     ELSE
-        result = 'Wykladowca ma wtedy zajecia';
-        positive = FALSE;
+        RAISE EXCEPTION 'Wykładowca nie został zmieniony, ponieważ ma wtedy zajęcia.';
     END IF;
 END
 $$;
-CALL zmien_prowadzacego(18, 27061);
+-- -- CALL zmien_prowadzacego(18, 27061);
 --2 Dodanie nowych zajec
 CREATE OR REPLACE PROCEDURE dodaj_nowe_zajecia(grupa_id unit_groups.unit_group_id%TYPE,
                                                sala rooms.room_id%TYPE,
                                                czas_rozpoczecia activities.start_time%TYPE,
                                                czas_zakonczenia activities.end_time%TYPE,
-                                               OUT result TEXT,
-                                               OUT positive bool)
+                                               OUT result TEXT)
     LANGUAGE plpgsql
 AS
 $$
@@ -58,32 +54,28 @@ BEGIN
     THEN
         INSERT INTO activities (start_time, end_time, room, unit_group)
         VALUES (czas_rozpoczecia, czas_zakonczenia, sala, grupa_id);
-        result = 'Dodano nowe zajecia';
-        positive = TRUE;
-    ELSE
-        positive = FALSE;
+        result = 'Dodano nowe zajęcia.';
     END IF;
     IF warunek1 = FALSE
     THEN
-        result = 'Nie można dodać nowych zajec, poniewaz w danym czasie grupa ma inne zajecia.';
+        RAISE EXCEPTION 'Nie można dodać nowych zajec, poniewaz w danym czasie grupa ma inne zajecia.';
     END IF;
     IF warunek2 = FALSE
     THEN
-        result = 'Nie można dodać nowych zajec, poniewaz w danym czasie wykładowca ma inne zajecia.';
+        RAISE EXCEPTION 'Nie można dodać nowych zajec, poniewaz w danym czasie wykładowca ma inne zajecia.';
     END IF;
     IF warunek3 = FALSE
     THEN
-        result = 'Nie można dodać nowych zajec, poniewaz w danym czasie sala jest zajeta.';
+        RAISE EXCEPTION 'Nie można dodać nowych zajec, poniewaz w danym czasie sala jest zajeta.';
     END IF;
 END;
 $$;
-CALL dodaj_nowe_zajecia(6, 8176, 'L-27.109', '2022-11-22 07:45:00.000000 +00:00', '2022-11-22 09:15:00.000000 +00:00');
+-- -- CALL dodaj_nowe_zajecia(6, 8176, 'L-27.109', '2022-11-22 07:45:00.000000 +00:00', '2022-11-22 09:15:00.000000 +00:00');
 --3 Przeniesc zajecia w czasie
 CREATE OR REPLACE PROCEDURE przenieś_zajecia_w_czasie(id_zajec activities.activity_id%TYPE,
                                                       nowy_czas_rozpoczecia activities.start_time%TYPE,
                                                       nowy_czas_zakonczenia activities.end_time%TYPE,
-                                                      OUT result TEXT,
-                                                      OUT positive bool)
+                                                      OUT result TEXT)
     LANGUAGE plpgsql
 AS
 $$
@@ -128,22 +120,19 @@ BEGIN
         SET start_time = nowy_czas_rozpoczecia,
             end_time   = nowy_czas_zakonczenia
         WHERE activity_id = id_zajec;
-        positive = TRUE;
         result = 'Przeniesiono zajęcia na wskazany czas.';
-    ELSE
-        positive = FALSE;
     END IF;
     IF warunek1 = FALSE
     THEN
-        result = 'Nie mozna przeniesc zajec, poniewaz w danym czasie grupa ma inne zajecia.';
+        RAISE EXCEPTION 'Nie mozna przeniesc zajec, poniewaz w danym czasie grupa ma inne zajecia.';
     END IF;
     IF warunek2 = FALSE
     THEN
-        result = 'Nie mozna przeniesc zajec, poniewaz w danym czasie wykładowca ma inne zajecia.';
+        RAISE EXCEPTION 'Nie mozna przeniesc zajec, poniewaz w danym czasie wykładowca ma inne zajecia.';
     END IF;
     IF warunek3 = FALSE
     THEN
-        result = 'Nie mozna przeniesc zajec, poniewaz w danym czasie sala jest zajeta.';
+        RAISE EXCEPTION 'Nie mozna przeniesc zajec, poniewaz w danym czasie sala jest zajeta.';
     END IF;
 END;
 $$;
@@ -151,8 +140,7 @@ $$;
 CREATE OR REPLACE PROCEDURE przenies_studenta_do_innej_grupy_na_jedne_zajecia(student_id users.usos_id%TYPE,
                                                                               obecna_grupa_id unit_groups.unit_group_id%TYPE,
                                                                               nowa_grupa_id unit_groups.unit_group_id%TYPE,
-                                                                              OUT result TEXT,
-                                                                              OUT positive bool)
+                                                                              OUT result TEXT)
     LANGUAGE plpgsql
 AS
 $$
@@ -161,7 +149,6 @@ DECLARE
     student_nie_ma_zajec bool = TRUE;
     x                    RECORD;
 BEGIN
-    -- TODO: dodać sprawdzenie czy nowa grupa nie jest taka sama jak obecna grupa.
     SELECT room_id
     INTO sala
     FROM rooms
@@ -187,10 +174,8 @@ BEGIN
         WHERE user_usos_id = student_id
           AND group_id = obecna_grupa_id;
         result = 'Student został przepisany do innej grupy.';
-        positive = TRUE;
     ELSE
-        result = 'Student nie może zmienić grupy, ponieważ w wybranym czasie on ma inne zajęcia.';
-        positive = FALSE;
+        RAISE EXCEPTION 'Student nie może zmienić grupy, ponieważ w wybranym czasie on ma inne zajęcia.';
     END IF;
 END;
 $$;
@@ -198,8 +183,7 @@ $$;
 CREATE OR REPLACE PROCEDURE przenies_studenta_na_wszystkie_zajecia(id_studenta users.usos_id%TYPE,
                                                                    rodzaj_zajec group_types.group_type_id%TYPE,
                                                                    nr_nowej_grupy unit_groups.group_number%TYPE,
-                                                                   OUT result TEXT,
-                                                                   OUT positive bool)
+                                                                   OUT result TEXT)
     LANGUAGE plpgsql
 AS
 $$
@@ -228,6 +212,7 @@ BEGIN
                        AND u.group_number = nr_nowej_grupy
                 LOOP
                     IF
+                            -- TODO (dla Vitalii'a): ignorować listę grup, a nie tylko jedną.
                             zajecia_studenta_w_danym_czasie(id_studenta, y.start_time, y.end_time, x.usos_unit_id) =
                             FALSE
                     THEN
@@ -252,15 +237,13 @@ BEGIN
                   AND group_id = x.unit_group_id;
             END LOOP;
         result = 'Student został przeniesiony do nowej grupy.';
-        positive = TRUE;
     ELSE
-        result = 'Student nie został przeniesiony do nowej grupy.';
-        positive = FALSE;
+        RAISE EXCEPTION 'Student nie został przeniesiony do nowej grupy';
     END IF;
 END;
 
 $$;
-CALL przenies_studenta_na_wszystkie_zajecia(234394, 'LAB', 6, '???', TRUE);
+-- CALL przenies_studenta_na_wszystkie_zajecia(234394, 'LAB', 6, '???', TRUE);
 SELECT group_number
 FROM unit_groups
          INNER JOIN users_groups ug ON unit_groups.unit_group_id = ug.group_id
