@@ -617,13 +617,17 @@ class UsosDB:
         try: 
             cur.execute(f"CALL {procedure_name_with_s_placeholders};", params)
         except RaiseException as err:
+            for notice in self.conn.notices:
+                logging.info(notice)
             self.conn.rollback() 
             cur.close()
             logging.debug(
                 f"User error in procedure: {err.diag.message_primary}."
             )   
             return err.diag.message_primary, False
-        else: 
+        else:
+            for notice in self.conn.notices:
+                logging.info(notice)
             ans = cur.fetchone()
             self.conn.commit()
             cur.close()
