@@ -333,6 +333,86 @@ $$;
 -- 50.665115, 22.036575
 -- 50.485998, 22.067751
 
+SELECT PG_GET_SERIAL_SEQUENCE('users', 'usos_id');
+CREATE SEQUENCE IF NOT EXISTS users_custom_usos_id_seq
+    AS INTEGER INCREMENT BY 1 START WITH 1 OWNED BY public.users.usos_id;
+
+CREATE OR REPLACE PROCEDURE auto_dodaj_studenta(
+    IN imie public.users.first_name%TYPE,
+    IN nazwisko public.users.last_name%TYPE,
+    OUT result TEXT
+)
+    LANGUAGE plpgsql
+AS
+$$
+DECLARE
+    new_user_usos_id   public.users.usos_id%TYPE;
+    gr_lek             public.unit_groups.group_number%TYPE;
+    gr_lab_pro         public.unit_groups.group_number%TYPE;
+    gr_cw              public.unit_groups.group_number%TYPE;
+    gr_wyk             public.unit_groups.group_number%TYPE;
+    cur_usos_units CURSOR FOR SELECT usos_unit_id, group_type
+                              FROM public.usos_units;
+    single_usos_unit   RECORD;
+    temp_unit_group_id public.unit_groups.unit_group_id%TYPE;
+    temp_gr_number     public.unit_groups.group_number%TYPE;
+BEGIN
+    CASE
+        WHEN imie !~ '^[A-Z][a-z]+$'
+            THEN RAISE EXCEPTION 'Imię powinno zawierać tylko znaki ASCII, pierwsza litera powinna być duża.';
+        WHEN nazwisko !~ '^[A-Z][a-z]+$'
+            THEN RAISE EXCEPTION 'Nazwisko powinno zawierać tylko znaki ASCII, pierwsza litera powinna być duża.';
+        ELSE BEGIN
+            -- Dodajemy nowego studenta do bazy.
+            new_user_usos_id = NEXTVAL('public.users_custom_usos_id_seq');
+            INSERT INTO public.users (usos_id, first_name, last_name)
+            VALUES (new_user_usos_id, imie, nazwisko);
+
+            -- Poszukiwanie grup o najmniejszej ilości studentów
+            gr_lek = grupa_z_min_iloscia_studentow('LEK');
+            gr_lab_pro = grupa_z_min_iloscia_studentow('LAB');
+            CASE gr_lab_pro
+                WHEN 1, 2 THEN gr_cw = 1;
+                WHEN 3, 4 THEN gr_cw = 2;
+                WHEN 5, 6 THEN gr_cw = 3;
+                ELSE RAISE EXCEPTION 'Lab/pro group (%) is unknown.', gr_lab_pro;
+                END CASE;
+            gr_wyk = grupa_z_min_iloscia_studentow('WYK');
+
+            -- Dodawanie studenta do każdego typu grupy każdego przedmiotu
+            OPEN cur_usos_units;
+            LOOP
+                FETCH cur_usos_units INTO single_usos_unit;
+                EXIT WHEN NOT found;
+
+                CASE single_usos_unit.group_type
+                    WHEN 'WYK' THEN temp_gr_number = gr_wyk;
+                    WHEN 'LAB', 'PRO' THEN temp_gr_number = gr_lab_pro;
+                    WHEN 'ĆW' THEN temp_gr_number = gr_cw;
+                    WHEN 'LEK' THEN temp_gr_number = gr_lek;
+                    ELSE RAISE EXCEPTION 'Group type (%) is unknown.', single_usos_unit.group_type;
+                    END CASE;
+
+                SELECT ung.unit_group_id
+                INTO temp_unit_group_id
+                FROM public.unit_groups ung
+                WHERE ung.group_number = temp_gr_number
+                  AND ung.usos_unit_id = single_usos_unit.usos_unit_id;
+
+                INSERT INTO public.users_groups (user_usos_id, group_id) VALUES (new_user_usos_id, temp_unit_group_id);
+                result = FORMAT('Studnet został został dodany do grup WYK %s, ĆW %s, LAB-PRO %s i LEK %s.',
+                                gr_wyk, gr_cw, gr_lab_pro, gr_lek);
+            END LOOP;
+            CLOSE cur_usos_units;
+
+        END;
+-- TODO: exceptions
+        END CASE;
+END;
+$$;
+
+CALL auto_dodaj_studenta('Paul', 'Massaro', '');
+
 CREATE OR REPLACE FUNCTION test() RETURNS INTEGER[]
     LANGUAGE plpgsql
 AS

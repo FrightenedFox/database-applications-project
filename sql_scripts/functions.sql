@@ -280,5 +280,48 @@ BEGIN
 
     RETURN odleglosc;
 END;
-$$
+$$;
 SELECT odleglosc_miedzy_budynkami('F', 'P');
+
+
+-- 9
+create or replace function ilosc_studentow_w_grupie(IN id_grupy public.unit_groups.unit_group_id%TYPE)
+    returns integer
+    language plpgsql
+as
+$$
+declare
+    liczebnosc_grupy INTEGER;
+begin
+    select count(distinct usg.user_usos_id)
+    into liczebnosc_grupy
+    from public.unit_groups ung
+    inner join users_groups usg on ung.unit_group_id = usg.group_id
+    where ung.unit_group_id = id_grupy;
+    return liczebnosc_grupy;
+end;
+$$;
+
+
+-- 10
+create or replace function grupa_z_min_iloscia_studentow(IN typ_grupy public.group_types.group_type_id%TYPE)
+returns double precision
+language plpgsql
+as
+$$
+    declare
+        najmniej_liczebna_grupa record;
+    begin
+        select ung.group_number numer_grupy, avg(ilosc_studentow_w_grupie(ung.unit_group_id)) srednia_ilosc_studentow
+        into najmniej_liczebna_grupa
+        from unit_groups ung
+        inner join usos_units uu on uu.usos_unit_id = ung.usos_unit_id
+        where uu.group_type = typ_grupy
+        group by ung.group_number
+        order by srednia_ilosc_studentow, numer_grupy
+        limit 1;
+        return najmniej_liczebna_grupa.numer_grupy;
+    end;
+$$;
+
+select grupa_z_min_iloscia_studentow('LAB');
