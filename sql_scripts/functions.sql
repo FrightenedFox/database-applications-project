@@ -35,48 +35,102 @@ END
 $$;
 SELECT sprawdzanie_wolnego_miejsca(113);
 --2
-CREATE OR REPLACE FUNCTION zajecia_studenta_w_danym_czasie(student users.usos_id%TYPE,
-                                                           czas_poczatkowy activities.start_time%TYPE,
-                                                           czas_koncowy activities.end_time%TYPE,
-                                                           ignoruj_usos_unit_id usos_units.usos_unit_id%TYPE DEFAULT NULL)
+CREATE OR REPLACE FUNCTION zajecia_studenta_w_danym_czasie(
+    student users.usos_id%TYPE,
+    czas_poczatkowy activities.start_time%TYPE,
+    czas_koncowy activities.end_time%TYPE
+)
     RETURNS bool
     LANGUAGE plpgsql
 AS
 $$
 DECLARE
-    wynik INT;
+    liczba_kolidujacych_zajec INT;
 BEGIN
-    IF ignoruj_usos_unit_id IS NULL
-    THEN
-        SELECT COUNT(activity_id)
-        INTO wynik
-        FROM activities act
-                 INNER JOIN unit_groups ung ON act.unit_group = ung.unit_group_id
-                 INNER JOIN users_groups usg ON ung.unit_group_id = usg.group_id
-                 INNER JOIN users u ON u.usos_id = usg.user_usos_id
-        WHERE (start_time >= czas_poczatkowy AND start_time < czas_koncowy
-            OR end_time > czas_poczatkowy AND end_time <= czas_koncowy)
-          AND u.usos_id = student;
-    ELSE
-        SELECT COUNT(activity_id)
-        INTO wynik
-        FROM activities act
-                 INNER JOIN unit_groups ung ON act.unit_group = ung.unit_group_id
-                 INNER JOIN users_groups usg ON ung.unit_group_id = usg.group_id
-                 INNER JOIN users u ON u.usos_id = usg.user_usos_id
-        WHERE (start_time >= czas_poczatkowy AND start_time < czas_koncowy
-            OR end_time > czas_poczatkowy AND end_time <= czas_koncowy)
-          AND u.usos_id = student
-          AND ung.usos_unit_id != ignoruj_usos_unit_id;
-    END IF;
-    IF wynik > 0 THEN
-        RAISE NOTICE 'X: % % %', wynik, czas_poczatkowy, czas_koncowy;
+    SELECT COUNT(activity_id)
+    INTO liczba_kolidujacych_zajec
+    FROM activities act
+             INNER JOIN unit_groups ung ON act.unit_group = ung.unit_group_id
+             INNER JOIN users_groups usg ON ung.unit_group_id = usg.group_id
+             INNER JOIN users u ON u.usos_id = usg.user_usos_id
+    WHERE (start_time >= czas_poczatkowy AND start_time < czas_koncowy
+        OR end_time > czas_poczatkowy AND end_time <= czas_koncowy)
+      AND u.usos_id = student;
+
+    IF liczba_kolidujacych_zajec > 0 THEN
         RETURN FALSE;
-    ELSIF wynik = 0 THEN
+    ELSIF liczba_kolidujacych_zajec = 0 THEN
         RETURN TRUE;
     END IF;
 END;
 $$
+
+
+CREATE OR REPLACE FUNCTION zajecia_studenta_w_danym_czasie(
+    student users.usos_id%TYPE,
+    czas_poczatkowy activities.start_time%TYPE,
+    czas_koncowy activities.end_time%TYPE,
+    ignoruj_usos_unit_id usos_units.usos_unit_id%TYPE
+)
+    RETURNS bool
+    LANGUAGE plpgsql
+AS
+$$
+DECLARE
+    liczba_kolidujacych_zajec INT;
+BEGIN
+    SELECT COUNT(activity_id)
+    INTO liczba_kolidujacych_zajec
+    FROM activities act
+             INNER JOIN unit_groups ung ON act.unit_group = ung.unit_group_id
+             INNER JOIN users_groups usg ON ung.unit_group_id = usg.group_id
+             INNER JOIN users u ON u.usos_id = usg.user_usos_id
+    WHERE (start_time >= czas_poczatkowy AND start_time < czas_koncowy
+        OR end_time > czas_poczatkowy AND end_time <= czas_koncowy)
+      AND u.usos_id = student
+      AND ung.usos_unit_id != ignoruj_usos_unit_id;
+
+    IF liczba_kolidujacych_zajec > 0 THEN
+        RETURN FALSE;
+    ELSIF liczba_kolidujacych_zajec = 0 THEN
+        RETURN TRUE;
+    END IF;
+END;
+$$
+
+-- Wykorzystanie listy
+CREATE OR REPLACE FUNCTION zajecia_studenta_w_danym_czasie(
+    student users.usos_id%TYPE,
+    czas_poczatkowy activities.start_time%TYPE,
+    czas_koncowy activities.end_time%TYPE,
+    ignoruj_liste_usos_unit_ids INTEGER ARRAY
+)
+    RETURNS bool
+    LANGUAGE plpgsql
+AS
+$$
+DECLARE
+    liczba_kolidujacych_zajec INT;
+BEGIN
+    SELECT COUNT(activity_id)
+    INTO liczba_kolidujacych_zajec
+    FROM activities act
+             INNER JOIN unit_groups ung ON act.unit_group = ung.unit_group_id
+             INNER JOIN users_groups usg ON ung.unit_group_id = usg.group_id
+             INNER JOIN users u ON u.usos_id = usg.user_usos_id
+    WHERE (start_time >= czas_poczatkowy AND start_time < czas_koncowy
+        OR end_time > czas_poczatkowy AND end_time <= czas_koncowy)
+      AND u.usos_id = student
+      AND ung.usos_unit_id != ALL (ignoruj_liste_usos_unit_ids);
+
+    IF liczba_kolidujacych_zajec > 0 THEN
+        RETURN FALSE;
+    ELSIF liczba_kolidujacych_zajec = 0 THEN
+        RETURN TRUE;
+    END IF;
+END;
+$$
+
 SELECT zajecia_studenta_w_danym_czasie(234394, TIMESTAMP '2022-12-16 16:46:00', TIMESTAMP '2022-12-16 17:30:00')
 --3
 CREATE OR REPLACE FUNCTION zajecia_wykladowcy_w_danym_czasie(wykladowca teachers.teacher_usos_id%TYPE,
@@ -168,7 +222,6 @@ DECLARE
 BEGIN
     FOR grupa IN SELECT unit_group FROM group_teacher WHERE teacher = wykladowca
         LOOP
-            RAISE NOTICE 'Grupa %', grupa;
             FOR zajecie IN SELECT start_time, end_time FROM activities WHERE unit_group = grupa
                 LOOP
                     laczny_czas := laczny_czas +
@@ -189,7 +242,6 @@ DECLARE
 BEGIN
     FOR grupa IN SELECT group_id FROM users_groups WHERE user_usos_id = student
         LOOP
-            RAISE NOTICE 'Grupa %', grupa;
             FOR zajecie IN SELECT start_time, end_time FROM activities WHERE unit_group = grupa
                 LOOP
                     laczny_czas := laczny_czas +

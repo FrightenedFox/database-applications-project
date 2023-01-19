@@ -188,13 +188,13 @@ CREATE OR REPLACE PROCEDURE przenies_studenta_na_wszystkie_zajecia(id_studenta u
 AS
 $$
 DECLARE
-    x              RECORD;
-    nie_ma_zajec   BOOLEAN = TRUE;
-    y              RECORD;
-    id_nowej_grupy unit_groups.unit_group_id%TYPE;
+    single_group_to_move           RECORD;
+    nie_ma_zajec                   BOOLEAN = TRUE;
+    activities_of_the_moving_group RECORD;
+    id_nowej_grupy                 unit_groups.unit_group_id%TYPE;
+    lista_grup_studenta            INTEGER ARRAY;
 BEGIN
-    DROP TABLE IF EXISTS temp_przenosiny;
-    CREATE TEMP TABLE temp_przenosiny AS
+    CREATE TEMP TABLE unit_groups_to_move AS
     SELECT unit_groups.usos_unit_id, unit_groups.group_number, unit_groups.unit_group_id
     FROM unit_groups
              INNER JOIN users_groups ug ON unit_groups.unit_group_id = ug.group_id
@@ -202,19 +202,23 @@ BEGIN
              INNER JOIN users u ON u.usos_id = ug.user_usos_id
     WHERE id_studenta = u.usos_id
       AND uu.group_type = rodzaj_zajec;
-    FOR x IN SELECT * FROM temp_przenosiny
+    SELECT INTO lista_grup_studenta ARRAY(SELECT usos_unit_id FROM unit_groups_to_move);
+    FOR single_group_to_move IN SELECT * FROM unit_groups_to_move
         LOOP
-            FOR y IN SELECT a.start_time,
-                            a.end_time
-                     FROM activities a
-                              INNER JOIN unit_groups u ON u.unit_group_id = a.unit_group
-                     WHERE u.usos_unit_id = x.usos_unit_id
-                       AND u.group_number = nr_nowej_grupy
+            FOR activities_of_the_moving_group IN
+                SELECT a.start_time,
+                       a.end_time
+                FROM activities a
+                         INNER JOIN unit_groups u ON u.unit_group_id = a.unit_group
+                WHERE u.usos_unit_id = single_group_to_move.usos_unit_id
+                  AND u.group_number = nr_nowej_grupy
                 LOOP
                     IF
-                            -- TODO (dla Vitalii'a): ignorować listę grup, a nie tylko jedną.
-                            zajecia_studenta_w_danym_czasie(id_studenta, y.start_time, y.end_time, x.usos_unit_id) =
-                            FALSE
+                            zajecia_studenta_w_danym_czasie(
+                                    id_studenta,
+                                    activities_of_the_moving_group.start_time,
+                                    activities_of_the_moving_group.end_time,
+                                    lista_grup_studenta) = FALSE
                     THEN
                         nie_ma_zajec = FALSE;
                     END IF;
@@ -224,22 +228,23 @@ BEGIN
     --   analogiczny warunek jest wykorzystywany w procedurze `przenies_studenta_do_innej_grupy_na_jedne_zajecia`).
     IF nie_ma_zajec
     THEN
-        FOR x IN SELECT * FROM temp_przenosiny
+        FOR single_group_to_move IN SELECT * FROM unit_groups_to_move
             LOOP
                 SELECT unit_group_id
                 INTO id_nowej_grupy
                 FROM unit_groups
-                WHERE usos_unit_id = x.usos_unit_id
+                WHERE usos_unit_id = single_group_to_move.usos_unit_id
                   AND group_number = nr_nowej_grupy;
                 UPDATE users_groups
                 SET group_id = id_nowej_grupy
                 WHERE user_usos_id = id_studenta
-                  AND group_id = x.unit_group_id;
+                  AND group_id = single_group_to_move.unit_group_id;
             END LOOP;
         result = 'Student został przeniesiony do nowej grupy.';
     ELSE
         RAISE EXCEPTION 'Student nie został przeniesiony do nowej grupy';
     END IF;
+    DROP TABLE IF EXISTS unit_groups_to_move;
 END;
 
 $$;
@@ -257,3 +262,95 @@ FROM unit_groups
          INNER JOIN users u ON u.usos_id = ug.user_usos_id
 WHERE 233921 = u.usos_id
   AND uu.group_type = 'WYK';
+
+
+SELECT PG_GET_SERIAL_SEQUENCE('teachers', 'teacher_usos_id');
+CREATE SEQUENCE IF NOT EXISTS teachers_custom_usos_id_seq
+    AS INTEGER INCREMENT BY 1 START WITH 1 OWNED BY public.teachers.teacher_usos_id;
+
+CREATE OR REPLACE PROCEDURE dodaj_nowego_prowadzacego(
+    IN imie public.teachers.first_name%TYPE,
+    IN nazwisko public.teachers.last_name%TYPE,
+    OUT result TEXT
+)
+    LANGUAGE plpgsql
+AS
+
+$$
+BEGIN
+    CASE
+        WHEN imie !~ '^[A-Z][a-z]+$'
+            THEN RAISE EXCEPTION 'Imię powinno zawierać tylko znaki ASCII, pierwsza litera powinna być duża.';
+        WHEN nazwisko !~ '^[A-Z][a-z]+$'
+            THEN RAISE EXCEPTION 'Nazwisko powinno zawierać tylko znaki ASCII, pierwsza litera powinna być duża.';
+        WHEN (SELECT COUNT(t.teacher_usos_id) FROM teachers t WHERE t.first_name = imie AND t.last_name = nazwisko) > 0
+            THEN RAISE EXCEPTION 'Nowy prowadzący nie został dodany, ponieważ podane dane prowadzącego już znajdują się w bazie.';
+        ELSE INSERT INTO public.teachers (teacher_usos_id, first_name, last_name)
+             VALUES (NEXTVAL('public.teachers_custom_usos_id_seq'), imie, nazwisko);
+             result = 'Nowy prowadzący został pomyślnie dodany do bazy.';
+        END CASE;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE dodaj_nowy_budynek(
+    IN id_budynku public.buildings.building_id%TYPE,
+    IN nazwa_budynku public.buildings.building_name%TYPE,
+    IN dlugosc_geo public.buildings.longitude%TYPE,
+    IN szerokosc_geo public.buildings.latitude%TYPE,
+    OUT result TEXT
+)
+    LANGUAGE plpgsql
+AS
+
+$$
+BEGIN
+    CASE
+        WHEN (SELECT COUNT(b.building_id)
+              FROM buildings b
+              WHERE b.building_id = id_budynku
+                 OR b.building_name = nazwa_budynku) > 0
+            THEN RAISE EXCEPTION 'Nowy budynek nie został dodany, ponieważ podana nazwa lub id budynku już znajduje się w bazie.';
+        WHEN NOT (
+            (dlugosc_geo > 21.903 AND dlugosc_geo < 22.080 AND szerokosc_geo > 49.977 AND szerokosc_geo < 50.136)
+            OR
+            (dlugosc_geo > 22.003 AND dlugosc_geo < 22.150 AND szerokosc_geo > 50.486 AND szerokosc_geo < 50.665)
+            ) then RAISE EXCEPTION 'Budynek nie został dodany, ponieważ podane współrzędne geograficzne nie znajdują się w Rzeszowie lub Stalowej Woli.';
+        ELSE INSERT INTO public.buildings (building_id, building_name, longitude, latitude)
+             VALUES (id_budynku, nazwa_budynku, dlugosc_geo, szerokosc_geo);
+             result = 'Nowy budynek został pomyślnie dodany do bazy.';
+        END CASE;
+END;
+$$;
+
+-- Graniczne współrzędne Rzeszowa
+-- 50.035191, 21.903421
+-- 50.027440, 22.080943
+-- 50.136168, 22.001790
+-- 49.977605, 21.991233
+-- Graniczne współrzędne Stalowej Woli
+-- 50.576391, 22.003445
+-- 50.582724, 22.150546
+-- 50.665115, 22.036575
+-- 50.485998, 22.067751
+
+CREATE OR REPLACE FUNCTION test() RETURNS INTEGER[]
+    LANGUAGE plpgsql
+AS
+$$
+DECLARE
+    a INTEGER ARRAY;
+    b INTEGER;
+BEGIN
+    b = 2;
+    a = ARRAY [2, 3, 4];
+    a = '{12, 3, 4}';
+    SELECT INTO a ARRAY(SELECT usos_unit_id FROM unit_groups);
+    RETURN a;
+END;
+$$;
+
+SELECT test
+FROM test();
+
+DROP FUNCTION test;
+
