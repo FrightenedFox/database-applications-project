@@ -148,25 +148,19 @@ def main():
         with col3_new_activity_end_time:
             new_activity_end_time = st.time_input(label="Czas zakończenia zajęcia:")
         if st.button("Dodaj zajęcie"):
-            if new_activity_end_time <= new_activity_start_time:
-                st.error(
-                    "Czas rozpoczęcia zajęć musi być większy lub równy czasu zakończenia zajęć"
-                )
-                # TODO: przenieść do procedury w SQL
+            add_new_activity_answer = st.session_state.db.call_procedure(
+                procedure_name_with_s_placeholders="dodaj_nowe_zajecia(%s, %s, %s, %s, '???')",
+                params=[
+                    unit_group_id,
+                    new_activity_room_id,
+                    dt.datetime.combine(new_activity_date, new_activity_start_time),
+                    dt.datetime.combine(new_activity_date, new_activity_end_time),
+                ],
+            )
+            if add_new_activity_answer[1]:
+                st.success(add_new_activity_answer[0][0])
             else:
-                add_new_activity_answer = st.session_state.db.call_procedure(
-                    procedure_name_with_s_placeholders="dodaj_nowe_zajecia(%s, %s, %s, %s, '???')",
-                    params=[
-                        unit_group_id,
-                        new_activity_room_id,
-                        dt.datetime.combine(new_activity_date, new_activity_start_time),
-                        dt.datetime.combine(new_activity_date, new_activity_end_time),
-                    ],
-                )
-                if add_new_activity_answer[1]:
-                    st.success(add_new_activity_answer[0][0])
-                else:
-                    st.error(add_new_activity_answer[0])
+                st.error(add_new_activity_answer[0])
 
     st.markdown("---")
 
@@ -225,25 +219,19 @@ def main():
                     activity_new_end_time = st.time_input(label="Nowy czas zakończenia zajęcia:",
                                                           value=modify_activity.end_time)
                 if st.button("Zapisz zmiany"):
-                    if activity_new_end_time <= activity_new_start_time:
-                        st.error(
-                            "Czas rozpoczęcia zajęć musi być większy lub równy czasu zakończenia zajęć"
-                        )
-                        # TODO: przenieść do procedury w SQL
+                    change_activity_time_answer = st.session_state.db.call_procedure(
+                        procedure_name_with_s_placeholders="przenieś_zajecia_w_czasie(%s, %s, %s, '???')",
+                        params=[
+                            int(modify_activity.activity_id),
+                            dt.datetime.combine(activity_new_date, activity_new_start_time),
+                            dt.datetime.combine(activity_new_date, activity_new_end_time),
+                        ],
+                    )
+                    if change_activity_time_answer[1]:
+                        st.success(change_activity_time_answer[0][0])
                     else:
-                        change_activity_time_answer = st.session_state.db.call_procedure(
-                            procedure_name_with_s_placeholders="przenieś_zajecia_w_czasie(%s, %s, %s, '???')",
-                            params=[
-                                int(modify_activity.activity_id),
-                                dt.datetime.combine(activity_new_date, activity_new_start_time),
-                                dt.datetime.combine(activity_new_date, activity_new_end_time),
-                            ],
-                        )
-                        if change_activity_time_answer[1]:
-                            st.success(change_activity_time_answer[0][0])
-                        else:
-                            st.error(change_activity_time_answer[0])
-                            # TODO: Nie mozna przeniesc zajec, poniewaz w danym czasie sala jest zajeta, gdy przenosimy zajęcia w to samo miejsce.
+                        st.error(change_activity_time_answer[0])
+                        # TODO: Nie mozna przeniesc zajec, poniewaz w danym czasie sala jest zajeta, gdy przenosimy zajęcia w to samo miejsce.
 
             with tab2_delete:
                 if st.button("Usuń zajęcie"):
