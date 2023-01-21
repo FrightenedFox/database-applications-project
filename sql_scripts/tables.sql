@@ -107,11 +107,11 @@ CREATE UNIQUE INDEX study_programmes_id_uindex
 
 CREATE TABLE user_programme
 (
-    user_id    INTEGER NOT NULL
+    user_id      INTEGER NOT NULL
         CONSTRAINT user_programme_user_id_fk
             REFERENCES users
             ON DELETE RESTRICT,
-    programme_id TEXT NOT NULL
+    programme_id TEXT    NOT NULL
         CONSTRAINT user_programme_programme_id_fk
             REFERENCES study_programmes
             ON DELETE RESTRICT

@@ -28,6 +28,7 @@ $$;
 
 
 -- 2
+-- Wersja pierwsza
 CREATE OR REPLACE FUNCTION zajecia_studenta_w_danym_czasie(
     student users.usos_id%TYPE,
     czas_poczatkowy activities.start_time%TYPE,
@@ -58,7 +59,7 @@ BEGIN
 END;
 $$;
 
-
+-- Wersja druga
 CREATE OR REPLACE FUNCTION zajecia_studenta_w_danym_czasie(
     student users.usos_id%TYPE,
     czas_poczatkowy activities.start_time%TYPE,
@@ -91,7 +92,7 @@ BEGIN
 END;
 $$;
 
--- Wykorzystanie listy
+-- Wersja trzecia
 CREATE OR REPLACE FUNCTION zajecia_studenta_w_danym_czasie(
     student users.usos_id%TYPE,
     czas_poczatkowy activities.start_time%TYPE,
@@ -221,12 +222,17 @@ DECLARE
     grupa       INT;
     laczny_czas DOUBLE PRECISION := 0.0;
 BEGIN
-    FOR grupa IN SELECT unit_group FROM group_teacher WHERE teacher = wykladowca
+    FOR grupa IN SELECT unit_group
+                 FROM group_teacher
+                 WHERE teacher = wykladowca
         LOOP
-            FOR zajecie IN SELECT start_time, end_time FROM activities WHERE unit_group = grupa
+            FOR zajecie IN SELECT start_time, end_time
+                           FROM activities
+                           WHERE unit_group = grupa
                 LOOP
                     laczny_czas := laczny_czas +
-                                   EXTRACT(EPOCH FROM AGE(zajecie.end_time, zajecie.start_time)) / 3600 AS difference;
+                                   EXTRACT(EPOCH FROM AGE(zajecie.end_time, zajecie.start_time))
+                                       / 3600 AS difference;
                 END LOOP;
         END LOOP;
     RETURN laczny_czas;
@@ -309,10 +315,10 @@ $$;
 
 
 -- 10
-create or replace function grupa_z_min_iloscia_studentow(IN typ_grupy public.group_types.group_type_id%TYPE)
-returns double precision
-language plpgsql
-as
+CREATE OR REPLACE FUNCTION grupa_z_min_iloscia_studentow(IN typ_grupy public.group_types.group_type_id%TYPE)
+    RETURNS DOUBLE PRECISION
+    LANGUAGE plpgsql
+AS
 $$
 DECLARE
     najmniej_liczebna_grupa RECORD;
@@ -320,8 +326,14 @@ BEGIN
     SELECT ung.group_number numer_grupy, AVG(ilosc_studentow_w_grupie(ung.unit_group_id)) srednia_ilosc_studentow
     INTO najmniej_liczebna_grupa
     FROM unit_groups ung
-             INNER JOIN usos_units uu ON uu.usos_unit_id = ung.usos_unit_id
-    WHERE uu.group_type = typ_grupy
+             INNER JOIN (SELECT DISTINCT uu.usos_unit_id, uu.group_type
+                         FROM usos_units uu
+                                  INNER JOIN unit_groups ung2 ON uu.usos_unit_id = ung2.usos_unit_id
+                                  INNER JOIN users_groups usg ON ung2.unit_group_id = usg.group_id
+                              -- Nie jest to błąd, po prostu ograniczamy się do 3 roku IiAD,
+                              -- podany user_usos_id to ID Vitalii'a Morskyiego
+                         WHERE usg.user_usos_id = 234394) y3uu ON ung.usos_unit_id = y3uu.usos_unit_id
+    WHERE y3uu.group_type = typ_grupy
     GROUP BY ung.group_number
     ORDER BY srednia_ilosc_studentow, numer_grupy
     LIMIT 1;

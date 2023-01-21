@@ -19,10 +19,10 @@ def main():
     st.markdown("Autorzy: Norbert Cyran, Vitalii Morskyi.")
 
     st.subheader("Diagram relacyjnej bazy danych")
-    st.image("database.png")
+    st.image("Media/database.png")
     st.markdown("---")
     st.subheader("Schemat aplikacji bazodanowej")
-    st.image("2023-01-05 AB Project Diagram.png")
+    st.image("Media/2023-01-05 AB Project Diagram.png")
 
 
 if __name__ == '__main__':

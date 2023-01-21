@@ -1,4 +1,5 @@
 -- Back to the future: sprawdzenie czy czas a jest mniejszy od czasu b
+-- Wersja pierwsza
 CREATE OR REPLACE PROCEDURE back_to_the_future(czas_a TIMESTAMP WITHOUT TIME ZONE, czas_b TIMESTAMP WITHOUT TIME ZONE)
     LANGUAGE plpgsql AS
 $$
@@ -9,6 +10,7 @@ BEGIN
 END;
 $$;
 
+-- Wersja druga
 CREATE OR REPLACE PROCEDURE back_to_the_future(czas_a TIMESTAMP WITH TIME ZONE, czas_b TIMESTAMP WITH TIME ZONE)
     LANGUAGE plpgsql AS
 $$
@@ -290,7 +292,6 @@ BEGIN
     END IF;
     DROP TABLE IF EXISTS unit_groups_to_move;
 END;
-
 $$;
 -- CALL przenies_studenta_na_wszystkie_zajecia(234394, 'LAB', 6, '???', TRUE);
 -- SELECT group_number
@@ -358,11 +359,14 @@ BEGIN
               WHERE b.building_id = id_budynku
                  OR b.building_name = nazwa_budynku) > 0
             THEN RAISE EXCEPTION 'Nowy budynek nie został dodany, ponieważ podana nazwa lub id budynku już znajduje się w bazie.';
+        WHEN (SELECT LENGTH(id_budynku)) = 0 OR (SELECT LENGTH(nazwa_budynku)) = 0
+            THEN RAISE EXCEPTION 'Nazwa lub id budynku nie może być pustym';
         WHEN NOT (
-            (dlugosc_geo > 21.903 AND dlugosc_geo < 22.080 AND szerokosc_geo > 49.977 AND szerokosc_geo < 50.136)
-            OR
-            (dlugosc_geo > 22.003 AND dlugosc_geo < 22.150 AND szerokosc_geo > 50.486 AND szerokosc_geo < 50.665)
-            ) then RAISE EXCEPTION 'Budynek nie został dodany, ponieważ podane współrzędne geograficzne nie znajdują się w Rzeszowie lub Stalowej Woli.';
+                (dlugosc_geo > 21.903 AND dlugosc_geo < 22.080 AND szerokosc_geo > 49.977 AND szerokosc_geo < 50.136)
+                OR
+                (dlugosc_geo > 22.003 AND dlugosc_geo < 22.150 AND szerokosc_geo > 50.486 AND szerokosc_geo < 50.665)
+            )
+            THEN RAISE EXCEPTION 'Budynek nie został dodany, ponieważ podane współrzędne geograficzne nie znajdują się w Rzeszowie lub Stalowej Woli.';
         ELSE INSERT INTO public.buildings (building_id, building_name, longitude, latitude)
              VALUES (id_budynku, nazwa_budynku, dlugosc_geo, szerokosc_geo);
              result = 'Nowy budynek został pomyślnie dodany do bazy.';
@@ -401,8 +405,12 @@ DECLARE
     gr_lab_pro         public.unit_groups.group_number%TYPE;
     gr_cw              public.unit_groups.group_number%TYPE;
     gr_wyk             public.unit_groups.group_number%TYPE;
-    cur_usos_units CURSOR FOR SELECT usos_unit_id, group_type
-                              FROM public.usos_units;
+    cur_usos_units CURSOR FOR SELECT DISTINCT uu.usos_unit_id, uu.group_type
+                              FROM public.usos_units uu
+                                       INNER JOIN unit_groups ung ON uu.usos_unit_id = ung.usos_unit_id
+                                       INNER JOIN users_groups usg ON ung.unit_group_id = usg.group_id
+                                       INNER JOIN users u ON usg.user_usos_id = u.usos_id
+                              WHERE u.usos_id = 234394;
     single_usos_unit   RECORD;
     temp_unit_group_id public.unit_groups.unit_group_id%TYPE;
     temp_gr_number     public.unit_groups.group_number%TYPE;
