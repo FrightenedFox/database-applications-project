@@ -34,10 +34,16 @@ def main():
 
             col1_group_selection, col2_group_selection = st.columns(2)
             with col1_group_selection:
-                courses_df = st.session_state.db.get_courses(programme_id=programme_id, usos_term_id=term_id)
-                course_name = st.selectbox(label="Przedmiot", options=courses_df.course_name,
-                                           key="single_subject_course_name")
-                course_id = courses_df[courses_df.course_name == course_name].course_id.iat[0]
+                courses_df = st.session_state.db.get_courses(
+                    programme_id=programme_id, usos_term_id=term_id
+                )
+                courses_df.loc[:, "unique_readable_course_id"] = courses_df.apply(
+                        lambda row: f"{row.course_name} [{row.course_id}]",
+                        axis=1,
+                    )
+                unique_readable_course_id = st.selectbox(label="Przedmiot", options=courses_df.unique_readable_course_id)
+                course_id = courses_df[courses_df.unique_readable_course_id == unique_readable_course_id
+                    ].course_id.iat[0]
 
             with col2_group_selection:
                 group_types_df = st.session_state.db.get_group_types(course_id=course_id,
@@ -114,6 +120,35 @@ def main():
                     st.success(change_all_subjects_group_answer[0][0])
                 else:
                     st.error(change_all_subjects_group_answer[0])
+
+    st.markdown("---")
+    
+    st.subheader("Dodawanie nowego studenta")
+    with st.container():
+        col1_inputs_student, col2_feedback_student = st.columns(2)
+        with col1_inputs_student:
+            student_first_name = st.text_input(
+                label="Imię",
+                placeholder="Podaj imię nowego studenta",
+                key="student_first_name",
+            )
+            student_last_name = st.text_input(
+                label="Nazwisko",
+                placeholder="Podaj nazwisko nowego studenta",
+                key="student_last_name",
+            )
+            if st.button(label="Dodaj", key="add_student_btn"):
+                add_student_answer = st.session_state.db.call_procedure(
+                    procedure_name_with_s_placeholders="auto_dodaj_studenta(%s, %s, '???')",
+                    params=[
+                        student_first_name,
+                        student_last_name,
+                    ],
+                )
+                if add_student_answer[1]:
+                    col2_feedback_student.success(add_student_answer[0][0])
+                else:
+                    col2_feedback_student.error(add_student_answer[0])
 
 
 if __name__ == '__main__':

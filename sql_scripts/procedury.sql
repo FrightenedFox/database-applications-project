@@ -44,9 +44,9 @@ BEGIN
         UPDATE group_teacher
         SET teacher = wykladowca_id
         WHERE unit_group = grupa_id;
-        result = 'Wykładowca został zmieniony.';
+        result = 'Prowadzący został zmieniony.';
     ELSE
-        RAISE EXCEPTION 'Wykładowca nie został zmieniony, ponieważ ma wtedy zajęcia.';
+        RAISE EXCEPTION 'Prowadzący nie został zmieniony, ponieważ ma wtedy zajęcia.';
     END IF;
 END
 $$;
@@ -90,7 +90,7 @@ BEGIN
     END IF;
     IF warunek2 = FALSE
     THEN
-        RAISE EXCEPTION 'Nie można dodać nowych zajec, poniewaz w danym czasie wykładowca ma inne zajecia.';
+        RAISE EXCEPTION 'Nie można dodać nowych zajec, poniewaz w danym czasie wykładowca prowadzi inne zajecia.';
     END IF;
     IF warunek3 = FALSE
     THEN
@@ -160,7 +160,7 @@ BEGIN
     END IF;
     IF warunek2 = FALSE
     THEN
-        RAISE EXCEPTION 'Nie mozna przeniesc zajec, poniewaz w danym czasie wykładowca ma inne zajecia.';
+        RAISE EXCEPTION 'Nie mozna przeniesc zajec, poniewaz w danym czasie wykładowca prowadzi inne zajecia.';
     END IF;
     IF warunek3 = FALSE
     THEN
@@ -212,13 +212,13 @@ BEGIN
             RAISE EXCEPTION 'Student nie może zmienić grupy, ponieważ w wybranym czasie on ma inne zajęcia.';
         END IF;
     ELSE
-        RAISE EXCEPTION 'Student nie może być przypisany do wkazanej grupy, ponieważ niema w niej wolnych miejsc';
+        RAISE EXCEPTION 'Student nie może być przypisany do wskazanej grupy, ponieważ niema w niej wolnych miejsc';
     END IF;
 EXCEPTION
     WHEN DATA_EXCEPTION THEN
         BEGIN
             RAISE NOTICE 'Some assigned rooms to the group % are too small.', nowa_grupa_id;
-            RAISE EXCEPTION 'Student nie może być przypisany do wkazanej grupy, ponieważ niema w niej wolnych miejsc';
+            RAISE EXCEPTION 'Student nie może być przypisany do wskazanej grupy, ponieważ niema w niej wolnych miejsc';
         END;
 END;
 $$;
@@ -458,7 +458,7 @@ BEGIN
                   AND ung.usos_unit_id = single_usos_unit.usos_unit_id;
 
                 INSERT INTO public.users_groups (user_usos_id, group_id) VALUES (new_user_usos_id, temp_unit_group_id);
-                result = FORMAT('Studnet został został dodany do grup WYK %s, ĆW %s, LAB-PRO %s i LEK %s.',
+                result = FORMAT('Student został został dodany do grup WYK %s, ĆW %s, LAB-PRO %s i LEK %s.',
                                 gr_wyk, gr_cw, gr_lab_pro, gr_lek);
             END LOOP;
             CLOSE cur_usos_units;

@@ -141,7 +141,7 @@ class UsosDB:
         cur = self.conn.cursor()
         query = (
             "INSERT INTO public.usos_units (usos_unit_id, course, group_type) "
-            "VALUES (%(usos_unit_id)s, %(course)s, %(group_type)s)"
+            "VALUES (%(usos_unit_id)s, %(course)s, %(group_type)s) "
             "ON CONFLICT (usos_unit_id) "
             "DO UPDATE SET course = excluded.course, "
             "group_type = excluded.group_type;"
@@ -578,8 +578,8 @@ class UsosDB:
 
     def get_teachers_working_hours(self):
         query = (
-            # "SELECT first_name || ' ' || teachers.last_name teacher, "
-            "SELECT first_name || ' ' || LEFT(teachers.last_name, 1) || '.' teacher, "
+            "SELECT first_name || ' ' || teachers.last_name teacher, "
+            # "SELECT first_name || ' ' || LEFT(teachers.last_name, 1) || '.' teacher, "
             "    ilosc_godzin_wykladowcy(teacher_usos_id) work_hours "
             "FROM teachers "
             "ORDER BY work_hours DESC;"

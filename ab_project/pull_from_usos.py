@@ -4,7 +4,6 @@ import logging
 
 import pytz
 
-from ab_project.config.config import app_config
 from ab_project.db import UsosDB
 from ab_project.usosapi.usosapi import USOSAPIConnection
 
@@ -16,15 +15,7 @@ def daterange(start_date: dt.date | dt.datetime, end_date: dt.date | dt.datetime
         yield start_date + dt.timedelta(days=n)
 
 
-async def pull_data(db: UsosDB):
-    usos_connection = USOSAPIConnection(
-        api_base_address=app_config.usosapi.api_base_address,
-        consumer_key=app_config.usosapi.consumer_key,
-        consumer_secret=app_config.usosapi.consumer_secret
-    )
-
-    print(usos_connection.get_authorization_url())
-    usos_connection.authorize_with_pin(input("Enter pin code: "))
+async def pull_data(usos_connection:USOSAPIConnection, db: UsosDB):
     logging.info(f"Authorization is successful: {usos_connection.is_authorized()}")
 
     user_info = usos_connection.current_identity()
