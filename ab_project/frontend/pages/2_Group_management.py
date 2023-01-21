@@ -34,16 +34,18 @@ def main():
     courses_df = st.session_state.db.get_courses(
         programme_id=programme_id, usos_term_id=get_term_id(term_name)
     )
-    course_name = st.selectbox(label="Przedmiot", options=courses_df.course_name)
-    get_course_id = lambda course_name_: courses_df[
-        courses_df.course_name == course_name_
+    courses_df.loc[:, "unique_readable_course_id"] = courses_df.apply(
+            lambda row: f"{row.course_name} [{row.course_id}]",
+            axis=1,
+        )
+    unique_readable_course_id = st.selectbox(label="Przedmiot", options=courses_df.unique_readable_course_id)
+    course_id = courses_df[courses_df.unique_readable_course_id == unique_readable_course_id
         ].course_id.iat[0]
-    # NOTE: sort courses
 
     col1_group_type, col2_group_number = st.columns(2)
     with col1_group_type:
         group_types_df = st.session_state.db.get_group_types(
-            course_id=get_course_id(course_name), usos_term_id=get_term_id(term_name)
+            course_id=course_id, usos_term_id=get_term_id(term_name)
         )
         group_type_name = st.selectbox(
             label="Typ zajęć", options=group_types_df.group_type_name
@@ -54,7 +56,7 @@ def main():
 
     with col2_group_number:
         unit_groups_df = st.session_state.db.get_unit_groups(
-            course_id=get_course_id(course_name),
+            course_id=course_id,
             usos_term_id=get_term_id(term_name),
             group_type=get_group_type_id(group_type_name),
         )

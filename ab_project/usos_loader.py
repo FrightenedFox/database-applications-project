@@ -29,6 +29,12 @@ if __name__ == '__main__':
     )
     db = UsosDB()
     db.connect()
-    asyncio.run(pull_data(usos_connection, db))
+    for _ in range(10):
+        try:
+            asyncio.run(pull_data(usos_connection, db))
+        except:
+            pass
+        else: 
+            break
     db.disconnect()
 

@@ -34,10 +34,16 @@ def main():
 
             col1_group_selection, col2_group_selection = st.columns(2)
             with col1_group_selection:
-                courses_df = st.session_state.db.get_courses(programme_id=programme_id, usos_term_id=term_id)
-                course_name = st.selectbox(label="Przedmiot", options=courses_df.course_name,
-                                           key="single_subject_course_name")
-                course_id = courses_df[courses_df.course_name == course_name].course_id.iat[0]
+                courses_df = st.session_state.db.get_courses(
+                    programme_id=programme_id, usos_term_id=term_id
+                )
+                courses_df.loc[:, "unique_readable_course_id"] = courses_df.apply(
+                        lambda row: f"{row.course_name} [{row.course_id}]",
+                        axis=1,
+                    )
+                unique_readable_course_id = st.selectbox(label="Przedmiot", options=courses_df.unique_readable_course_id)
+                course_id = courses_df[courses_df.unique_readable_course_id == unique_readable_course_id
+                    ].course_id.iat[0]
 
             with col2_group_selection:
                 group_types_df = st.session_state.db.get_group_types(course_id=course_id,

@@ -1,5 +1,6 @@
 import subprocess
 import sys
+import logging
 
 import streamlit as st
 
@@ -42,7 +43,7 @@ def main():
 Za pomocą poniższego linku można zalogować się za pomocą uczelnianego konta. 
 Pozwoli to naszej aplikacji pobrać twój plan zajęć.
 
-> [coś -tam ]({st.session_state.authorization_url})
+> [Zaloguj się za pomocą USOS API]({st.session_state.authorization_url})
 
 Zaloguj się za pomocą uczelnianego konta i skopiuj kod autoryzacji.
 Zatem wklej otrzymany kod w poniższe pole i kliknij na przycisk `Autoryzuj`.
@@ -62,6 +63,7 @@ Autoryzacja przeszła pomyślnie.
 Pierwsze zmiany na stronie będą widoczne w ciągu jednej minuty. Wszystkie zajęcia zostaną zaimportowane w ciągu godziny.
                 """)
                 at, ats = st.session_state.usos_connection.get_access_data()
+                logging.info(f"Start collecting USOS data from: {at=} {ats=}")
                 subprocess.Popen([
                     sys.executable, 'ab_project/usos_loader.py', 
                     '--access_token', at,
