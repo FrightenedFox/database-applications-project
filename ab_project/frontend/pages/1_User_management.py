@@ -115,6 +115,35 @@ def main():
                 else:
                     st.error(change_all_subjects_group_answer[0])
 
+    st.markdown("---")
+    
+    st.subheader("Dodawanie nowego studenta")
+    with st.container():
+        col1_inputs_student, col2_feedback_student = st.columns(2)
+        with col1_inputs_student:
+            student_first_name = st.text_input(
+                label="Imię",
+                placeholder="Podaj imię nowego studenta",
+                key="student_first_name",
+            )
+            student_last_name = st.text_input(
+                label="Nazwisko",
+                placeholder="Podaj nazwisko nowego studenta",
+                key="student_last_name",
+            )
+            if st.button(label="Dodaj", key="add_student_btn"):
+                add_student_answer = st.session_state.db.call_procedure(
+                    procedure_name_with_s_placeholders="auto_dodaj_studenta(%s, %s, '???')",
+                    params=[
+                        student_first_name,
+                        student_last_name,
+                    ],
+                )
+                if add_student_answer[1]:
+                    col2_feedback_student.success(add_student_answer[0][0])
+                else:
+                    col2_feedback_student.error(add_student_answer[0])
+
 
 if __name__ == '__main__':
     st.set_page_config(
