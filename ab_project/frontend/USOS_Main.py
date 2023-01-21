@@ -48,7 +48,7 @@ Pozwoli to naszej aplikacji pobrać twój plan zajęć.
 Zaloguj się za pomocą uczelnianego konta i skopiuj kod autoryzacji.
 Zatem wklej otrzymany kod w poniższe pole i kliknij na przycisk `Autoryzuj`.
         """)
-        authorisation_pin = authorisation_con.text_input("Podaj kod autoryzacji:", placeholder="123456")
+        authorisation_pin = authorisation_con.text_input("Podaj kod autoryzacji:", placeholder="12345678")
         if authorisation_con.button("Autoryzuj"):
             try:
                 st.session_state.usos_connection.authorize_with_pin(authorisation_pin)
