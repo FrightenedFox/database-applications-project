@@ -20,8 +20,14 @@ def main():
     users_df = st.session_state.db.get_users(usos_term_id=term_id, programme_id=programme_id)
     users_df.loc[:, "unique_readable_user_id"] = users_df.apply(
         lambda row: f"{row.first_name} {row.last_name} [{row.usos_id}]", axis=1)
-    vitaliis_index = int(users_df[users_df.usos_id == 234394].index[0])
-    unique_readable_user_id = st.selectbox(label="Student", options=users_df.unique_readable_user_id, index=vitaliis_index)
+    if (users_df.usos_id == 234394).sum() > 0: 
+        known_index = int(users_df[users_df.usos_id == 234394].index[0])
+    elif (users_df.usos_id == 227392).sum() > 0: 
+        known_index = int(users_df[users_df.usos_id == 227392].index[0])
+    else:
+        known_index = 0
+        
+    unique_readable_user_id = st.selectbox(label="Student", options=users_df.unique_readable_user_id, index=known_index)
     user_usos_id = int(users_df[users_df.unique_readable_user_id == unique_readable_user_id].usos_id.iat[0])
 
     st.markdown("---")
