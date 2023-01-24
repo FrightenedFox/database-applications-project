@@ -23,7 +23,7 @@ def main():
     teachers_hours_df = st.session_state.db.get_teachers_working_hours()
     fig2 = px.histogram(teachers_hours_df, x="teacher", y="work_hours")
     fig2.update_layout(
-        title_text='Spędzony czas prowadzących z IiAD',
+        title_text='Spędzony czas prowadzących z WMiFS',
         xaxis_title_text='Prowadzący',
         yaxis_title_text='Łączna liczba godzin pracy [g]',
         bargap=0.2,
