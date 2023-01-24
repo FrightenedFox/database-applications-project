@@ -63,17 +63,11 @@ def main():
         unit_group_number = st.selectbox(
             label="Numer grupy", options=unit_groups_df.group_number
         )
-        get_unit_group_id = lambda: int(
-            unit_groups_df[
-                unit_groups_df.group_number == unit_group_number
-                ].unit_group_id.iat[0]
-        )
         unit_group_id = int(
             unit_groups_df[
                 unit_groups_df.group_number == unit_group_number
                 ].unit_group_id.iat[0]
         )
-        # NOTE: można nie używać lambdy
 
     st.markdown("---")
 

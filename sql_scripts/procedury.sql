@@ -326,7 +326,7 @@ $$
 BEGIN
     CASE
         WHEN imie !~ '^[A-Z][a-z]+$'
-            THEN RAISE EXCEPTION 'Imię powinno zawierać tylko znaki ASCII, pierwsza litera powinna być duża.';
+            THEN RAISE EXCEPTION 'Imię powinno zawierać tylko znaki ASCII, pierwsza litera powinna być duża, minimalna długość imienia wynosi 2 znaki.';
         WHEN nazwisko !~ '^[A-Z][a-z]+$'
             THEN RAISE EXCEPTION 'Nazwisko powinno zawierać tylko znaki ASCII, pierwsza litera powinna być duża.';
         WHEN (SELECT COUNT(t.teacher_usos_id) FROM teachers t WHERE t.first_name = imie AND t.last_name = nazwisko) > 0
